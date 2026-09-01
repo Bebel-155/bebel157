@@ -98,6 +98,20 @@ def stable_bytes(obj):
     return json.dumps(obj,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode('utf-8')
 def sha(b): return hashlib.sha256(b).hexdigest()
 
+def install_staged_file(src, dst):
+    """Install a validated staged file atomically even when staging is on another volume."""
+    src=Path(src); dst=Path(dst)
+    dst.parent.mkdir(parents=True,exist_ok=True)
+    fd, local_name=tempfile.mkstemp(prefix='.'+dst.name+'.',suffix='.tmp',dir=str(dst.parent))
+    os.close(fd)
+    local=Path(local_name)
+    try:
+        shutil.copyfile(str(src),str(local))
+        os.replace(str(local),str(dst))
+    finally:
+        try: local.unlink()
+        except FileNotFoundError: pass
+
 def validate_dir(outdir):
     outdir=Path(outdir)
     a=(outdir/'android_devices.json').read_bytes(); p=(outdir/'apple_devices.json').read_bytes()
@@ -140,7 +154,7 @@ def main():
         validate_dir(tmp)
         outdir.mkdir(parents=True,exist_ok=True)
         for n in ('android_devices.json','apple_devices.json','catalog-manifest.json'):
-            os.replace(str(tmp/n),str(outdir/n))
+            install_staged_file(tmp/n,outdir/n)
     finally:
         shutil.rmtree(tmp,ignore_errors=True)
     print('generated android=%d apple=%d'%(len(android),len(apple_rows)))
