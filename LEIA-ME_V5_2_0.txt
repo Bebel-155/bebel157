@@ -1,0 +1,59 @@
+BEBEL EQUIPE DO MAIS NOVO 155 - v5.2.0
+
+PRINCIPAIS NOVIDADES
+- Reconhecimento modular Android e Apple por dispositivo selecionado.
+- ADB direcionado por serial; libimobiledevice direcionado por UDID.
+- Android: marca/modelo/codinome/build/SoC/ABI/RAM/armazenamento/bateria/tela.
+- Apple: ProductType/HardwareModel/ModelNumber/iOS/build/armazenamento/bateria.
+- Identificacao com niveis EXATA / PROVAVEL / INCOMPLETA; sem chute silencioso.
+- Catalogos Android/Apple atualizaveis independentemente do EXE.
+- Atualizacao automatica dos catalogos na inicializacao com cache SHA-256.
+- Nova aba Valor de Mercado: novo + usado, mediana/faixa, cache de 6 horas.
+- Cotacao nao envia serial, IMEI, UDID ou Android ID.
+- Access token do Mercado Livre, quando necessario, fica protegido por DPAPI.
+- Updater v5.2.0 exige SHA-256 antes de aplicar o EXE.
+
+REPOSITORIO
+https://github.com/Bebel-155/bebel157
+
+ARQUIVOS DA RELEASE
+Bebel-155_V5_2_0.exe
+Bebel-155_V5_2_0.exe.sha256
+Bebel-155_Setup_V5_2_0.exe
+Bebel-155_Setup_V5_2_0.exe.sha256
+manifest.json
+
+ATUALIZAR UMA INSTALACAO v5.1.9 PELO PAINEL
+A v5.1.9 usa um parser antigo dos assets do GitHub. Para fazer a primeira
+migracao para v5.2.0 sem substituir o EXE manualmente, execute uma unica vez:
+
+ATIVAR_UPDATE_PAINEL_V5_1_9.bat
+
+Depois que o workflow da v5.2.0 estiver verde:
+Bebel 155 > Atualizacoes > Verificar Bebel 155 > Baixar / aplicar update
+
+O PUBLICAR_NO_GITHUB.bat configura essa ponte automaticamente na maquina que
+realiza a publicacao.
+
+COMPILAR LOCALMENTE
+CRIAR_EXE_V5_2_0.bat
+
+CRIAR SETUP
+CRIAR_SETUP_V5_2_0.bat
+
+PUBLICAR
+PUBLICAR_NO_GITHUB.bat
+
+VALIDACOES AUTOMATICAS
+- tests/validate-source.py
+- tests/verify_release_structure.py
+- tests/run-device-recognition-tests.ps1
+- tests/run-catalog-tests.ps1
+- tests/run-market-tests.ps1
+- tests/run-update-tests.ps1
+
+IMPORTANTE
+Este ambiente de desenvolvimento nao possui Windows/.NET Framework/Inno Setup,
+portanto a compilacao real do WinForms e o Setup sao gates do GitHub Actions.
+A Release so deve ser considerada concluida depois do job "liberar" ficar verde
+e do teste real do updater a partir da v5.1.9.

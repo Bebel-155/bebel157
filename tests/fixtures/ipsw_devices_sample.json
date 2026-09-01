@@ -1,0 +1,4 @@
+[
+  {"name":"iPhone 15 Pro","identifier":"iPhone16,1","boards":[{"boardconfig":"D83AP","platform":"t8130"}]},
+  {"name":"iPhone Air","identifier":"iPhone18,4","boards":[{"boardconfig":"D23AP","platform":"t8150"}]}
+]

@@ -73,8 +73,14 @@ del /q "CRIAR_EXE_V5_1_*.bat" >nul 2>&1
 del /q "CRIAR_SETUP_V5_1_*.bat" >nul 2>&1
 del /q "INICIAR_V5_1_*.bat" >nul 2>&1
 del /q "LEIA-ME_V5_1_*.txt" >nul 2>&1
+del /q "Bebel155_v5_2_*.cs" >nul 2>&1
+del /q "Bebel155_v5_2_*.iss" >nul 2>&1
+del /q "CRIAR_EXE_V5_2_*.bat" >nul 2>&1
+del /q "CRIAR_SETUP_V5_2_*.bat" >nul 2>&1
+del /q "INICIAR_V5_2_*.bat" >nul 2>&1
+del /q "LEIA-ME_V5_2_*.txt" >nul 2>&1
 
-echo [3/5] Copiando a v5.1.9 para o clone temporario...
+echo [3/5] Copiando a v5.2.0 para o clone temporario...
 robocopy "%SOURCE%" "%CLONE%" /E /R:2 /W:1 /COPY:DAT /DCOPY:DAT /NFL /NDL /NJH /NJS /NP ^
  /XD "%SOURCE%\.git" "%SOURCE%\build" "%SOURCE%\dist" "%SOURCE%\.vs" "%SOURCE%\bin" "%SOURCE%\obj" ^
  /XF "device-images.json" "compilacao.log"
@@ -102,7 +108,7 @@ git diff --cached --quiet
 if not errorlevel 1 (
   echo Nenhuma alteracao nova para publicar.
 ) else (
-  git commit -m "Bebel 155 v5.1.9 - corrigir Setup e encerramento"
+  git commit -m "Bebel 155 v5.2.0 - reconhecimento, catalogos e valor de mercado"
   if errorlevel 1 (
     echo [ERRO] Falha ao criar commit.
     echo Pasta temporaria: %TMPROOT%
@@ -131,7 +137,17 @@ echo ============================================================
 echo [OK] PUBLICACAO ENVIADA PARA O GITHUB
 echo ============================================================
 echo.
-echo O GitHub Actions deve iniciar automaticamente.
+echo Configurando esta instalacao v5.1.9 para usar o manifest de compatibilidade...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SOURCE%\ATIVAR_UPDATE_PAINEL_V5_1_9.ps1"
+if errorlevel 1 (
+  echo [AVISO] O codigo foi publicado, mas a ponte do atualizador local nao foi configurada.
+  echo Execute depois ATIVAR_UPDATE_PAINEL_V5_1_9.bat.
+) else (
+  echo [OK] Ponte de atualizacao local configurada.
+)
+echo.
+echo Aguarde o GitHub Actions ficar verde. Depois use no Bebel 155:
+echo Atualizacoes ^> Verificar Bebel 155 ^> Baixar / aplicar update.
 start "" "https://github.com/Bebel-155/bebel157/actions"
 start "" "https://github.com/Bebel-155/bebel157/releases"
 pause

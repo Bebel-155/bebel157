@@ -3,6 +3,19 @@ name: Build and Publish Bebel 155
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - "VERSION"
+      - "Bebel155_v5_2_0.cs"
+      - "Core/**"
+      - "Devices/**"
+      - "Catalogs/*.cs"
+      - "Market/**"
+      - "tests/**"
+      - "scripts/update_device_catalogs.py"
+      - ".github/workflows/release.yml"
+      - "Bebel155_v5_2_0.iss"
+      - "CRIAR_EXE_V5_2_0.bat"
+      - "CRIAR_SETUP_V5_2_0.bat"
   workflow_dispatch:
 
 permissions:
@@ -15,209 +28,192 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      - name: Definir versao automatica
+      - name: Definir e validar versao
         id: version
         shell: pwsh
         run: |
-          # O primeiro workflow falhou no run 1. O proximo push (run 2) gera 5.1.8.
-          $patch = 6 + [int]"${{ github.run_number }}"
-          $version = "5.1.$patch"
+          $version = (Get-Content "VERSION" -Raw).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION invalida: $version" }
           $fileVersion = "V" + ($version -replace '\.','_')
           "version=$version" >> $env:GITHUB_OUTPUT
           "file_version=$fileVersion" >> $env:GITHUB_OUTPUT
 
-          $src = "Bebel155_v5_1_9.cs"
-          if (!(Test-Path $src)) { throw "Fonte nao encontrada: $src" }
+          if ($version -ne "5.2.0") { throw "Esta branch espera VERSION 5.2.0, recebeu $version" }
+          if (git tag -l "v$version") { throw "Tag v$version ja existe. A versao deve ser incrementada para uma nova Release." }
 
-          $text = Get-Content $src -Raw
-          $text = $text -replace 'readonly string AppVersion = "[^"]+";', ('readonly string AppVersion = "' + $version + '";')
-          $text = $text -replace 'footer.Text = "v[^"]+ • USB / Android / iOS";', ('footer.Text = "v' + $version + ' • USB / Android / iOS";')
-          Set-Content -Path $src -Value $text -Encoding UTF8
-
-          $iss = "Bebel155_v5_1_9.iss"
-          if (!(Test-Path $iss)) { throw "Arquivo Inno Setup nao encontrado: $iss" }
-
-          $i = Get-Content $iss -Raw
-          $i = $i -replace '#define MyAppVersion "[^"]+"', ('#define MyAppVersion "' + $version + '"')
-          $i = $i -replace '#define MyAppExeName "[^"]+"', ('#define MyAppExeName "Bebel-155_' + $fileVersion + '.exe"')
-          $i = $i -replace 'OutputBaseFilename=.*', ('OutputBaseFilename=Bebel-155_Setup_' + $fileVersion)
-          Set-Content -Path $iss -Value $i -Encoding UTF8
+          $src = Get-Content "Bebel155_v5_2_0.cs" -Raw
+          if ($src -notmatch 'readonly string AppVersion = "5\.2\.0";') { throw "AppVersion nao esta em 5.2.0." }
+          $iss = Get-Content "Bebel155_v5_2_0.iss" -Raw
+          if ($iss -notmatch '#define MyAppVersion "5\.2\.0"') { throw "Inno AppVersion nao esta em 5.2.0." }
 
       - name: Validar arquivos do build
         shell: pwsh
         run: |
           $required = @(
-            "Bebel155_v5_1_9.cs",
-            "Bebel155_v5_1_9.iss",
-            "Assets\bebel155.ico",
-            "Assets\logo_b155.png",
-            "Assets\banner_b155.png"
+            "Bebel155_v5_2_0.cs", "Bebel155_v5_2_0.iss", "VERSION",
+            "Assets\bebel155.ico", "Assets\logo_b155.png", "Assets\banner_b155.png",
+            "Core\DeviceModels.cs", "Core\ICommandRunner.cs", "Core\CommandRunner.cs", "Core\GithubReleaseParser.cs",
+            "Devices\DeviceDiscovery.cs", "Devices\AndroidProbe.cs", "Devices\AppleProbe.cs", "Devices\DeviceResolver.cs",
+            "Catalogs\CatalogModels.cs", "Catalogs\CatalogManager.cs",
+            "Catalogs\android_devices.json", "Catalogs\apple_devices.json", "Catalogs\catalog-manifest.json",
+            "Market\MarketModels.cs", "Market\IMarketAdapter.cs", "Market\MercadoLivreAdapter.cs",
+            "Market\PriceNormalizer.cs", "Market\MarketCache.cs", "Market\MarketPriceService.cs"
           )
-
           foreach ($file in $required) {
-            if (!(Test-Path $file)) {
-              throw "Arquivo obrigatorio ausente: $file"
-            }
-            $item = Get-Item $file
-            Write-Host ("OK  {0}  ({1} bytes)" -f $item.FullName, $item.Length)
+            if (!(Test-Path $file)) { throw "Arquivo obrigatorio ausente: $file" }
+            Write-Host "OK $file"
           }
+
+      - name: Preparar Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Validar fonte
+        shell: pwsh
+        run: python tests/validate-source.py
+
+      - name: Atualizar catalogos da Release
+        shell: pwsh
+        run: |
+          python scripts/update_device_catalogs.py --output-dir Catalogs
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao gerar os catalogos atuais para a Release." }
+
+      - name: Testar
+        shell: pwsh
+        run: .\tests\run-all-tests.ps1
+
+      - name: Validar catalogos
+        shell: pwsh
+        run: |
+          python scripts/update_device_catalogs.py --validate-only --output-dir Catalogs
+          if ($LASTEXITCODE -ne 0) { throw "Falha na validacao dos catalogos." }
 
       - name: Compilar EXE
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build | Out-Null
-
           $fileVersion = "${{ steps.version.outputs.file_version }}"
-
-          # Resolve todos os caminhos ANTES de montar os argumentos.
-          # Isso evita o CS1566 causado pelas aspas dentro de /resource:.
-          $source = (Resolve-Path "Bebel155_v5_1_9.cs").Path
-          $icon = (Resolve-Path "Assets\bebel155.ico").Path
-          $logo = (Resolve-Path "Assets\logo_b155.png").Path
-          $banner = (Resolve-Path "Assets\banner_b155.png").Path
           $buildDir = (Resolve-Path "build").Path
           $exe = Join-Path $buildDir ("Bebel-155_" + $fileVersion + ".exe")
 
           $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-          if (!(Test-Path $csc)) {
-            $csc = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe"
-          }
-          if (!(Test-Path $csc)) {
-            throw "csc.exe nao encontrado."
-          }
-
+          if (!(Test-Path $csc)) { $csc = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe" }
+          if (!(Test-Path $csc)) { throw "csc.exe nao encontrado." }
           $frameworkDir = Split-Path $csc -Parent
 
+          $sources = @((Resolve-Path "Bebel155_v5_2_0.cs").Path)
+          foreach ($folder in @("Core","Devices","Catalogs","Market")) {
+            $sources += Get-ChildItem $folder -Filter *.cs -File | Sort-Object Name | ForEach-Object { $_.FullName }
+          }
+          if ($sources.Count -lt 16) { throw "Lista de fontes incompleta: $($sources.Count)" }
+
+          $icon = (Resolve-Path "Assets\bebel155.ico").Path
+          $logo = (Resolve-Path "Assets\logo_b155.png").Path
+          $banner = (Resolve-Path "Assets\banner_b155.png").Path
           $references = @(
-            "System.dll",
-            "System.Core.dll",
-            "System.Drawing.dll",
-            "System.Windows.Forms.dll",
-            "System.Management.dll",
-            "System.IO.Compression.dll",
-            "System.IO.Compression.FileSystem.dll"
+            "System.dll", "System.Core.dll", "System.Drawing.dll", "System.Windows.Forms.dll",
+            "System.Management.dll", "System.IO.Compression.dll", "System.IO.Compression.FileSystem.dll",
+            "System.Web.Extensions.dll", "System.Security.dll"
           )
 
           $cscArgs = @(
-            "/nologo",
-            "/target:winexe",
-            "/optimize+",
-            "/platform:anycpu",
-            "/codepage:65001",
-            ("/out:" + $exe),
-            ("/win32icon:" + $icon),
-            ("/resource:" + $logo + ",Bebel155.Logo"),
-            ("/resource:" + $banner + ",Bebel155.Banner")
+            "/nologo", "/target:winexe", "/optimize+", "/platform:anycpu", "/codepage:65001",
+            ("/out:" + $exe), ("/win32icon:" + $icon),
+            ("/resource:" + $logo + ",Bebel155.Logo"), ("/resource:" + $banner + ",Bebel155.Banner")
           )
-
           foreach ($ref in $references) {
             $refPath = Join-Path $frameworkDir $ref
-            if (!(Test-Path $refPath)) {
-              throw "Referencia .NET ausente: $refPath"
-            }
+            if (!(Test-Path $refPath)) { throw "Referencia .NET ausente: $refPath" }
             $cscArgs += ("/reference:" + $refPath)
           }
-
-          $cscArgs += $source
-
-          Write-Host "Compilador: $csc"
-          Write-Host "Fonte: $source"
-          Write-Host "Logo: $logo"
-          Write-Host "Banner: $banner"
-          Write-Host "Saida: $exe"
+          $cscArgs += $sources
 
           & $csc @cscArgs
-
-          if ($LASTEXITCODE -ne 0) {
-            throw "csc.exe terminou com codigo $LASTEXITCODE."
-          }
-
-          if (!(Test-Path $exe)) {
-            throw "EXE nao criado: $exe"
-          }
-
+          if ($LASTEXITCODE -ne 0) { throw "csc.exe terminou com codigo $LASTEXITCODE." }
+          if (!(Test-Path $exe)) { throw "EXE nao criado: $exe" }
           Write-Host "EXE criado: $exe"
 
       - name: Instalar Inno Setup
         shell: pwsh
         run: choco install innosetup -y --no-progress
 
-
       - name: Validar Inno Setup
         shell: pwsh
         run: |
-          $iss = "Bebel155_v5_1_9.iss"
-          if (!(Test-Path $iss)) { throw "Arquivo Inno Setup ausente: $iss" }
-
+          $iss = "Bebel155_v5_2_0.iss"
           $text = Get-Content $iss -Raw
-          $match = [regex]::Match(
-            $text,
-            '(?ms)^\[Icons\]\s*(.*?)(?=^\[|\z)'
-          )
-
-          if (!$match.Success) {
-            throw "Secao [Icons] nao encontrada em $iss."
+          $match = [regex]::Match($text, '(?ms)^\[Icons\]\s*(.*?)(?=^\[|\z)')
+          if (!$match.Success) { throw "Secao [Icons] nao encontrada." }
+          if ($match.Groups[1].Value -match 'skipifsourcedoesntexist') { throw 'Flag invalido em [Icons].' }
+          foreach ($catalog in @("android_devices.json","apple_devices.json","catalog-manifest.json")) {
+            if ($text -notmatch [regex]::Escape($catalog)) { throw "Catalogo nao incluido no Setup: $catalog" }
           }
-
-          $icons = $match.Groups[1].Value
-          if ($icons -match 'skipifsourcedoesntexist') {
-            throw 'Flag invalido skipifsourcedoesntexist encontrado na secao [Icons].'
-          }
-
-          Write-Host "Secao [Icons] validada."
 
       - name: Compilar Setup
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (!(Test-Path $iscc)) {
-            $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
-          }
-          if (!(Test-Path $iscc)) {
-            throw "ISCC.exe nao encontrado."
-          }
-
-          & $iscc "Bebel155_v5_1_9.iss"
-
-          if ($LASTEXITCODE -ne 0) {
-            throw "Falha ao compilar Setup. Codigo: $LASTEXITCODE"
-          }
-
-          $fileVersion = "${{ steps.version.outputs.file_version }}"
-          $setup = "dist\Bebel-155_Setup_$fileVersion.exe"
-          if (!(Test-Path $setup)) {
-            throw "Setup nao encontrado apos compilacao: $setup"
-          }
+          if (!(Test-Path $iscc)) { $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe" }
+          if (!(Test-Path $iscc)) { throw "ISCC.exe nao encontrado." }
+          & $iscc "Bebel155_v5_2_0.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao compilar Setup. Codigo: $LASTEXITCODE" }
+          $setup = "dist\Bebel-155_Setup_${{ steps.version.outputs.file_version }}.exe"
+          if (!(Test-Path $setup)) { throw "Setup nao encontrado: $setup" }
 
       - name: Calcular SHA-256
         shell: pwsh
         run: |
-          $fileVersion = "${{ steps.version.outputs.file_version }}"
-          $exe = "build\Bebel-155_$fileVersion.exe"
-          $setup = "dist\Bebel-155_Setup_$fileVersion.exe"
+          $fv = "${{ steps.version.outputs.file_version }}"
+          $exe = "build\Bebel-155_$fv.exe"
+          $setup = "dist\Bebel-155_Setup_$fv.exe"
+          foreach ($f in @($exe,$setup)) { if (!(Test-Path $f)) { throw "Asset ausente: $f" } }
+          (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower() | Set-Content "$exe.sha256" -NoNewline
+          (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower() | Set-Content "$setup.sha256" -NoNewline
 
-          if (!(Test-Path $exe)) { throw "EXE ausente: $exe" }
-          if (!(Test-Path $setup)) { throw "Setup ausente: $setup" }
-
-          (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower() |
-            Set-Content "$exe.sha256"
-
-          (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower() |
-            Set-Content "$setup.sha256"
+      - name: Gerar manifest compativel
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $fv = "${{ steps.version.outputs.file_version }}"
+          $exe = "build\Bebel-155_$fv.exe"
+          $shaFile = "$exe.sha256"
+          if (!(Test-Path $exe)) { throw "EXE ausente para manifest: $exe" }
+          if (!(Test-Path $shaFile)) { throw "SHA ausente para manifest: $shaFile" }
+          $sha = (Get-Content $shaFile -Raw).Trim().ToLowerInvariant()
+          if ($sha -notmatch '^[a-f0-9]{64}$') { throw "SHA invalido para manifest." }
+          $downloadUrl = "https://github.com/Bebel-155/bebel157/releases/download/v$version/Bebel-155_$fv.exe"
+          $manifest = [ordered]@{
+            version = $version
+            downloadUrl = $downloadUrl
+            sha256 = $sha
+            notes = "Bebel 155 v$version - reconhecimento Android/iOS, catalogos atualizaveis e Valor de Mercado."
+          }
+          $json = $manifest | ConvertTo-Json -Compress
+          $manifestPath = Join-Path $PWD "Atualizacao\manifest.json"
+          [System.IO.File]::WriteAllText($manifestPath, $json, (New-Object System.Text.UTF8Encoding($false)))
+          Write-Host "Manifest criado: $manifestPath"
 
       - name: Publicar GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: Bebel Equipe Do Mais Novo 155 v${{ steps.version.outputs.version }}
           make_latest: true
           body: |
-            Build automatico do Bebel 155.
+            Bebel 155 v5.2.0
+            - reconhecimento Android/iOS por dispositivo selecionado
+            - catalogos atualizaveis independentemente do EXE
+            - Valor de Mercado novo + usado
+            - verificacao SHA-256 no atualizador
             Commit: ${{ github.sha }}
           files: |
             build/Bebel-155_${{ steps.version.outputs.file_version }}.exe
             build/Bebel-155_${{ steps.version.outputs.file_version }}.exe.sha256
             dist/Bebel-155_Setup_${{ steps.version.outputs.file_version }}.exe
             dist/Bebel-155_Setup_${{ steps.version.outputs.file_version }}.exe.sha256
+            Atualizacao/manifest.json

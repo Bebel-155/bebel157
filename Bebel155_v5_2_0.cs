@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
+using System.Globalization;
 using System.Linq;
 using System.Management;
 using System.Net;
@@ -69,7 +70,7 @@ namespace BebelEquipe155
             request.Method = "GET";
             request.Timeout = 4500;
             request.ReadWriteTimeout = 4500;
-            request.UserAgent = "BebelEquipe155-v5.1.9";
+            request.UserAgent = "BebelEquipe155/5.2";
             request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
             using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
@@ -420,7 +421,7 @@ namespace BebelEquipe155
     public class MainForm : Form
     {
         readonly string AppName = "Bebel Equipe Do Mais Novo 155";
-        readonly string AppVersion = "5.1.9";
+        readonly string AppVersion = "5.2.0";
 
         string BaseDir, LogDir, ReportDir, BackupDir, ToolsDir, DownloadDir, ScreenshotDir, ExportDir, HistoryDir, PlatformToolsDir, UpdateDir, SettingsFile, LogFile;
         UpdateManifest pendingManifest;
@@ -475,6 +476,19 @@ namespace BebelEquipe155
         string lastDeviceRenderKey = "";
         Label infoSystemValue, infoBatteryValue, infoRamValue, infoStorageValue, infoResolutionValue;
 
+        ComboBox deviceSelector;
+        bool updatingDeviceSelector = false;
+        DeviceRef selectedDevice;
+        List<DeviceRef> discoveredDevices = new List<DeviceRef>();
+        int deviceProbeGeneration = 0;
+        ResolvedDevice currentResolvedDevice;
+        AndroidSnapshot currentAndroidSnapshot;
+        AppleSnapshot currentAppleSnapshot;
+        CatalogManager catalogManager;
+        string CatalogCacheDir, MarketCacheDir;
+        MarketQuote currentMarketQuote;
+        RichTextBox marketOutput;
+
         public MainForm()
         {
             BaseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -491,13 +505,17 @@ namespace BebelEquipe155
             ExportDir = Path.Combine(documents, "exportacoes");
             HistoryDir = Path.Combine(documents, "historico");
             PlatformToolsDir = Path.Combine(ToolsDir, "platform-tools");
+            CatalogCacheDir = Path.Combine(localData, "catalog");
+            MarketCacheDir = Path.Combine(localData, "market");
 
-            foreach (string d in new[] { LogDir, ReportDir, BackupDir, ToolsDir, DownloadDir, ScreenshotDir, ExportDir, HistoryDir, UpdateDir })
+            foreach (string d in new[] { LogDir, ReportDir, BackupDir, ToolsDir, DownloadDir, ScreenshotDir, ExportDir, HistoryDir, UpdateDir, CatalogCacheDir, MarketCacheDir })
                 Directory.CreateDirectory(d);
 
             LogFile = Path.Combine(LogDir, "bebel155_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".log");
             EnsureSettings();
             MigrateLegacySettings();
+            catalogManager = new CatalogManager(Path.Combine(BaseDir, "Catalogs"), CatalogCacheDir);
+            catalogManager.LoadBestAvailable();
 
             Text = AppName;
             StartPosition = FormStartPosition.CenterScreen;
@@ -522,6 +540,7 @@ namespace BebelEquipe155
                 Log("Aplicativo iniciado.");
                 RefreshDashboardAsync();
                 ThreadPool.QueueUserWorkItem(delegate { AutoUpdateStartup(); });
+                ThreadPool.QueueUserWorkItem(delegate { AutoRefreshCatalogsStartup(); });
                 ResolveOperatingCityAsync();
             };
 
@@ -611,8 +630,22 @@ namespace BebelEquipe155
             headerDeviceLabel.Text = "Aguardando dispositivo • v" + AppVersion;
             headerDeviceLabel.ForeColor = CMuted;
             headerDeviceLabel.AutoSize = true;
-            headerDeviceLabel.Location = new Point(29, 58);
+            headerDeviceLabel.Location = new Point(29, 53);
             header.Controls.Add(headerDeviceLabel);
+
+            deviceSelector = new ComboBox();
+            deviceSelector.DropDownStyle = ComboBoxStyle.DropDownList;
+            deviceSelector.FlatStyle = FlatStyle.Flat;
+            deviceSelector.BackColor = Color.FromArgb(27, 35, 47);
+            deviceSelector.ForeColor = CText;
+            deviceSelector.Font = FSmall;
+            deviceSelector.Size = new Size(410, 27);
+            deviceSelector.Location = new Point(26, 72);
+            deviceSelector.SelectedIndexChanged += delegate
+            {
+                if (!updatingDeviceSelector) OnSelectedDeviceChanged();
+            };
+            header.Controls.Add(deviceSelector);
 
             Button exitButton = new Button();
             exitButton.Text = "⏻  Encerrar";
@@ -672,7 +705,7 @@ namespace BebelEquipe155
             };
             sidebarClockTimer.Start();
 
-            string[] names = { "Painel", "Informações", "Android", "iPhone / iOS", "Diagnóstico", "Recuperação", "Backup", "Ferramentas", "Atualizações", "Relatórios" };
+            string[] names = { "Painel", "Informações", "Android", "iPhone / iOS", "Diagnóstico", "Recuperação", "Backup", "Ferramentas", "Atualizações", "Valor de Mercado", "Relatórios" };
             int top = 42;
             foreach (string n in names)
             {
@@ -696,7 +729,7 @@ namespace BebelEquipe155
             }
 
             Label footer = new Label();
-            footer.Text = "v5.1.9 • USB / Android / iOS";
+            footer.Text = "v5.2.0 • USB / Android / iOS";
             footer.ForeColor = Color.FromArgb(145, 155, 172);
             footer.Font = FSmall;
             footer.AutoSize = true;
@@ -955,6 +988,7 @@ namespace BebelEquipe155
             BuildBackupPage();
             BuildToolsPage();
             BuildUpdatesPage();
+            BuildMarketValuePage();
             BuildReportsPage();
 
             foreach (Panel p in pages.Values)
@@ -1371,11 +1405,27 @@ namespace BebelEquipe155
 
             AddAction(actions, "Verificar Bebel 155", delegate { RunBackground("Atualizações", "Verificando atualização do sistema...", CheckAppUpdate); });
             AddAction(actions, "Baixar / aplicar update", delegate { ApplyPendingUpdate(); });
+            AddAction(actions, "Atualizar catálogos agora", delegate { RunBackground("Atualizações", "Atualizando catálogos Android/Apple...", RefreshDeviceCatalogs); });
             AddAction(actions, "Atualizar dependências", delegate { RunBackground("Atualizações", "Atualizando dependências...", UpdateAllDependencies); });
             AddAction(actions, "Verificar dependências", delegate { RunBackground("Atualizações", "Verificando dependências...", CheckDependencies); });
             AddAction(actions, "Configurar update", delegate { OpenUpdateSettings(); });
             AddAction(actions, "Abrir GitHub Bebel155", delegate { OpenUrl("https://github.com/Bebel-155/bebel157"); });
             AddAction(actions, "Abrir pasta de updates", delegate { OpenFolder(UpdateDir); });
+        }
+
+        void BuildMarketValuePage()
+        {
+            FlowLayoutPanel actions;
+            RichTextBox output;
+            Panel p = BuildActionPage("Valor de Mercado", "Cotação online estimada do modelo identificado. Novo e usado são calculados separadamente.", out actions, out output);
+            pages["Valor de Mercado"] = p;
+            outputs["Valor de Mercado"] = output;
+            marketOutput = output;
+            marketOutput.Text = "Conecte e identifique um aparelho para consultar o valor de mercado.";
+
+            AddAction(actions, "Atualizar cotação", delegate { RefreshMarketQuoteAsync(true); });
+            AddAction(actions, "Ver fontes", delegate { OpenMarketSources(); });
+            AddAction(actions, "Configurar Mercado Livre", delegate { ConfigureMarketToken(); });
         }
 
         void BuildReportsPage()
@@ -1512,21 +1562,460 @@ namespace BebelEquipe155
             });
         }
 
-        void RefreshDashboardAsync()
+        CommandRunner CreateCommandRunner()
         {
-            SetBusy(true, "Analisando dispositivo...");
+            return new CommandRunner(RegisterOwnedProcess, UnregisterOwnedProcess);
+        }
+
+        List<DeviceRef> DiscoverConnectedDevices()
+        {
+            List<DeviceRef> list = new List<DeviceRef>();
+            CommandRunner runner = CreateCommandRunner();
+            DeviceDiscovery discovery = new DeviceDiscovery(runner);
+            string adb = ToolPath("adb.exe");
+            string ideviceId = ToolPath("idevice_id.exe");
+            if (!string.IsNullOrWhiteSpace(adb)) list.AddRange(discovery.DiscoverAndroid(adb));
+            if (!string.IsNullOrWhiteSpace(ideviceId)) list.AddRange(discovery.DiscoverApple(ideviceId));
+            return list;
+        }
+
+        void RefreshConnectedDevicesAsync(bool forceProbe)
+        {
             ThreadPool.QueueUserWorkItem(delegate
             {
-                DashboardState state = BuildDashboardState();
-                string diag = GetDriverDiagnosis();
+                List<DeviceRef> list;
+                try { list = DiscoverConnectedDevices(); }
+                catch (Exception ex) { Log("Falha na descoberta de dispositivos: " + ex.Message); list = new List<DeviceRef>(); }
 
                 if (isShuttingDown || IsDisposed || !IsHandleCreated) return;
                 BeginInvoke((MethodInvoker)delegate
                 {
-                    ApplyDashboardState(state);
+                    string previousId = selectedDevice == null ? "" : selectedDevice.TransportId;
+                    DevicePlatform previousPlatform = selectedDevice == null ? DevicePlatform.Android : selectedDevice.Platform;
+                    updatingDeviceSelector = true;
+                    try
+                    {
+                        discoveredDevices = list;
+                        deviceSelector.Items.Clear();
+                        foreach (DeviceRef d in list) deviceSelector.Items.Add(d);
+
+                        int selectedIndex = -1;
+                        for (int i = 0; i < list.Count; i++)
+                            if (list[i].Platform == previousPlatform && string.Equals(list[i].TransportId, previousId, StringComparison.OrdinalIgnoreCase)) { selectedIndex = i; break; }
+                        if (selectedIndex < 0)
+                            for (int i = 0; i < list.Count; i++) if (list[i].ConnectionState == DeviceConnectionState.Ready) { selectedIndex = i; break; }
+                        if (selectedIndex < 0 && list.Count > 0) selectedIndex = 0;
+
+                        if (selectedIndex >= 0)
+                        {
+                            deviceSelector.SelectedIndex = selectedIndex;
+                            DeviceRef next = list[selectedIndex];
+                            bool changed = selectedDevice == null || selectedDevice.Platform != next.Platform || !string.Equals(selectedDevice.TransportId, next.TransportId, StringComparison.OrdinalIgnoreCase);
+                            selectedDevice = next;
+                            if (changed || forceProbe) ProbeSelectedDeviceAsync();
+                        }
+                        else
+                        {
+                            Interlocked.Increment(ref deviceProbeGeneration);
+                            selectedDevice = null;
+                            currentResolvedDevice = null;
+                            currentAndroidSnapshot = null;
+                            currentAppleSnapshot = null;
+                            currentMarketQuote = null;
+                            headerDeviceLabel.Text = "Aguardando dispositivo • v" + AppVersion;
+                            infoType.Text = "Aguardando"; infoType.ForeColor = CMuted;
+                            infoOs.Text = "—"; infoOs.ForeColor = CMuted;
+                            infoDriver.Text = "—"; infoDriver.ForeColor = CMuted;
+                            infoRam.Text = "—"; infoRam.ForeColor = CMuted;
+                            infoStorage.Text = "—"; infoStorage.ForeColor = CMuted;
+                            infoBattery.Text = "—"; infoBattery.ForeColor = CMuted;
+                            statusUsb.Text = "● USB"; statusUsb.ForeColor = CMuted;
+                            statusAdb.Text = "● ADB"; statusAdb.ForeColor = CMuted;
+                            statusIos.Text = "● iOS"; statusIos.ForeColor = CMuted;
+                            statusSystem.Text = "Sistema: —"; statusSystem.ForeColor = CMuted;
+                            if (outputs.ContainsKey("Informações")) outputs["Informações"].Text = "Nenhum dispositivo conectado.";
+                            if (marketOutput != null) marketOutput.Text = "Nenhum aparelho identificado para cotação.";
+                        }
+                    }
+                    finally { updatingDeviceSelector = false; }
+                });
+            });
+        }
+
+        void OnSelectedDeviceChanged()
+        {
+            DeviceRef d = deviceSelector == null ? null : deviceSelector.SelectedItem as DeviceRef;
+            if (d == null) return;
+            selectedDevice = d;
+            currentResolvedDevice = null;
+            currentAndroidSnapshot = null;
+            currentAppleSnapshot = null;
+            currentMarketQuote = null;
+            ProbeSelectedDeviceAsync();
+        }
+
+        void ProbeSelectedDeviceAsync()
+        {
+            DeviceRef device = selectedDevice;
+            if (device == null) return;
+            int generation = Interlocked.Increment(ref deviceProbeGeneration);
+            if (device.ConnectionState != DeviceConnectionState.Ready)
+            {
+                string state = device.ConnectionState == DeviceConnectionState.Unauthorized ? "não autorizado" : device.ConnectionState.ToString();
+                headerDeviceLabel.Text = device.ToString() + " • " + state + " • v" + AppVersion;
+                if (outputs.ContainsKey("Informações")) outputs["Informações"].Text = "Dispositivo " + state + ". Autorize/desbloqueie o aparelho e clique em Atualizar.";
+                return;
+            }
+
+            SetBusy(true, "Lendo " + device.ToString() + "...");
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                DeviceProbeResult result = new DeviceProbeResult();
+                result.Device = device;
+                try
+                {
+                    CommandRunner runner = CreateCommandRunner();
+                    if (device.Platform == DevicePlatform.Android)
+                    {
+                        string adb = ToolPath("adb.exe");
+                        if (adb == null) throw new InvalidOperationException("ADB não encontrado.");
+                        result.Android = new AndroidProbe(runner).Probe(adb, device);
+                        CatalogMatch match = catalogManager == null ? new CatalogMatch() : catalogManager.MatchAndroid(result.Android);
+                        result.Resolved = new DeviceResolver().ResolveAndroid(result.Android, match);
+                    }
+                    else
+                    {
+                        string info = ToolPath("ideviceinfo.exe");
+                        if (info == null) throw new InvalidOperationException("ideviceinfo não encontrado.");
+                        result.Apple = new AppleProbe(runner).Probe(info, ToolPath("idevicediagnostics.exe"), device);
+                        CatalogMatch match = catalogManager == null ? new CatalogMatch() : catalogManager.MatchApple(result.Apple);
+                        result.Resolved = new DeviceResolver().ResolveApple(result.Apple, match);
+                    }
+                }
+                catch (Exception ex) { result.Error = ex.Message; }
+
+                if (isShuttingDown || IsDisposed || !IsHandleCreated || generation != deviceProbeGeneration) return;
+                BeginInvoke((MethodInvoker)delegate
+                {
+                    if (generation != deviceProbeGeneration) return;
+                    if (!string.IsNullOrWhiteSpace(result.Error))
+                    {
+                        if (outputs.ContainsKey("Informações")) outputs["Informações"].Text = "Falha ao ler o aparelho selecionado:\r\n" + result.Error;
+                        SetBusy(false, "Falha na leitura");
+                        return;
+                    }
+                    ApplyProbeResult(result);
+                    SetBusy(false, "Pronto");
+                });
+            });
+        }
+
+        void ApplyProbeResult(DeviceProbeResult result)
+        {
+            currentResolvedDevice = result.Resolved;
+            currentAndroidSnapshot = result.Android;
+            currentAppleSnapshot = result.Apple;
+            if (currentResolvedDevice == null) return;
+
+            string display = string.IsNullOrWhiteSpace(currentResolvedDevice.CommercialName) ? currentResolvedDevice.TechnicalModel : currentResolvedDevice.CommercialName;
+            if (string.IsNullOrWhiteSpace(display)) display = "Dispositivo";
+            selectedDevice.TechnicalLabel = display;
+            deviceNameValue.Text = display;
+            deviceVendorValue.Text = string.IsNullOrWhiteSpace(currentResolvedDevice.Manufacturer) ? "—" : currentResolvedDevice.Manufacturer;
+            deviceModeValue.Text = currentResolvedDevice.Device.Platform == DevicePlatform.Android ? "ADB autorizado" : "iOS autorizado";
+            deviceOsValue.Text = currentResolvedDevice.OperatingSystem;
+            deviceIdValue.Text = currentResolvedDevice.Device.MaskedTransportId;
+            headerDeviceLabel.Text = display + " • " + currentResolvedDevice.ConfidenceLabel + " • " + currentResolvedDevice.OperatingSystem + " • v" + AppVersion;
+
+            if (currentResolvedDevice.Device.Platform == DevicePlatform.Android)
+            {
+                cardAndroidValue.Text = "ADB conectado"; cardAndroidValue.ForeColor = CGreen;
+                statusAdb.ForeColor = CGreen;
+            }
+            else
+            {
+                cardIosValue.Text = "Conectado"; cardIosValue.ForeColor = CGreen;
+                statusIos.ForeColor = CGreen;
+            }
+            cardSystemValue.Text = currentResolvedDevice.OperatingSystem;
+            statusSystem.Text = "Sistema: " + currentResolvedDevice.OperatingSystem;
+
+            DeviceMetrics metrics = MetricsFromCurrentProbe();
+            infoSystemValue.Text = metrics.System;
+            infoBatteryValue.Text = metrics.Battery;
+            infoRamValue.Text = metrics.Ram;
+            infoStorageValue.Text = metrics.Storage;
+            infoResolutionValue.Text = metrics.Resolution;
+            if (outputs.ContainsKey("Informações"))
+            {
+                outputs["Informações"].Text = BuildResolvedDeviceDetails();
+                outputs["Informações"].SelectionStart = 0;
+            }
+            try { deviceSelector.Refresh(); } catch { }
+            RefreshDeviceRenderAsync();
+
+            if (marketOutput != null)
+            {
+                marketOutput.Text = "Modelo identificado: " + display + "\r\nConfiança: " + currentResolvedDevice.ConfidenceLabel + "\r\n\r\nConsultando valor de mercado...";
+                if (currentResolvedDevice.Confidence != MatchConfidence.Incomplete) RefreshMarketQuoteAsync(false);
+                else marketOutput.Text += "\r\nCotação automática não executada porque a identificação está incompleta.";
+            }
+        }
+
+        DeviceMetrics MetricsFromCurrentProbe()
+        {
+            DeviceMetrics m = new DeviceMetrics();
+            ResolvedDevice r = currentResolvedDevice;
+            if (r == null) return m;
+            m.System = string.IsNullOrWhiteSpace(r.OperatingSystem) ? "—" : r.OperatingSystem;
+            m.Battery = r.BatteryPercent.HasValue ? r.BatteryPercent.Value + "%" : "—";
+            m.Ram = r.RamBytes.HasValue ? FormatBytes(r.RamBytes.Value) : (r.Device.Platform == DevicePlatform.Apple ? "Não exposta / catálogo indisponível" : "—");
+            if (r.StorageTotalBytes.HasValue)
+            {
+                m.Storage = r.StorageUsedBytes.HasValue ? FormatBytes(r.StorageUsedBytes.Value) + " / " + FormatBytes(r.StorageTotalBytes.Value) : FormatBytes(r.StorageTotalBytes.Value);
+                m.StorageDetail = "Total " + FormatBytes(r.StorageTotalBytes.Value) + (r.StorageFreeBytes.HasValue ? " • Livre " + FormatBytes(r.StorageFreeBytes.Value) : "");
+            }
+            else m.Storage = "—";
+            if (currentAndroidSnapshot != null) m.Resolution = string.IsNullOrWhiteSpace(currentAndroidSnapshot.Resolution) ? "—" : currentAndroidSnapshot.Resolution;
+            else m.Resolution = "Não exposta";
+            return m;
+        }
+
+        string BuildResolvedDeviceDetails()
+        {
+            ResolvedDevice r = currentResolvedDevice;
+            if (r == null) return "Nenhum aparelho resolvido.";
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("IDENTIFICAÇÃO DO DISPOSITIVO");
+            sb.AppendLine("===========================");
+            sb.AppendLine("Confiança: " + r.ConfidenceLabel);
+            sb.AppendLine("Modelo comercial: " + (string.IsNullOrWhiteSpace(r.CommercialName) ? "não resolvido" : r.CommercialName));
+            sb.AppendLine("Modelo técnico / ProductType: " + (string.IsNullOrWhiteSpace(r.TechnicalModel) ? "não exposto" : r.TechnicalModel));
+            sb.AppendLine("Codinome / HardwareModel: " + (string.IsNullOrWhiteSpace(r.DeviceCode) ? "não exposto" : r.DeviceCode));
+            sb.AppendLine("Fabricante: " + (string.IsNullOrWhiteSpace(r.Manufacturer) ? "não exposto" : r.Manufacturer));
+            sb.AppendLine("Marca: " + (string.IsNullOrWhiteSpace(r.Brand) ? "não exposta" : r.Brand));
+            sb.AppendLine("Sistema: " + r.OperatingSystem);
+            sb.AppendLine("Identificador USB: " + r.Device.MaskedTransportId);
+            if (!string.IsNullOrWhiteSpace(r.Variant)) sb.AppendLine("Variante / SKU: " + r.Variant);
+            if (!string.IsNullOrWhiteSpace(r.Soc)) sb.AppendLine("CPU / SoC: " + r.Soc);
+            if (!string.IsNullOrWhiteSpace(r.Abi)) sb.AppendLine("ABI: " + r.Abi);
+            sb.AppendLine("RAM: " + (r.RamBytes.HasValue ? FormatBytes(r.RamBytes.Value) : (r.Device.Platform == DevicePlatform.Apple ? "não exposta diretamente pelo iOS" : "não disponível")));
+            sb.AppendLine("Armazenamento total: " + (r.StorageTotalBytes.HasValue ? FormatBytes(r.StorageTotalBytes.Value) : "não disponível"));
+            sb.AppendLine("Armazenamento usado: " + (r.StorageUsedBytes.HasValue ? FormatBytes(r.StorageUsedBytes.Value) : "não disponível"));
+            sb.AppendLine("Armazenamento livre: " + (r.StorageFreeBytes.HasValue ? FormatBytes(r.StorageFreeBytes.Value) : "não disponível"));
+            sb.AppendLine("Bateria: " + (r.BatteryPercent.HasValue ? r.BatteryPercent.Value + "%" : "não disponível"));
+            if (currentAndroidSnapshot != null)
+            {
+                sb.AppendLine("Resolução: " + currentAndroidSnapshot.Resolution);
+                sb.AppendLine("Densidade: " + currentAndroidSnapshot.Density);
+                sb.AppendLine("Battery health (raw): " + currentAndroidSnapshot.BatteryHealth);
+            }
+            if (currentAppleSnapshot != null)
+            {
+                string color; if (currentAppleSnapshot.Info.TryGetValue("DeviceColor", out color) && !string.IsNullOrWhiteSpace(color)) sb.AppendLine("Cor: " + color);
+                string enclosure; if (currentAppleSnapshot.Info.TryGetValue("EnclosureColor", out enclosure) && !string.IsNullOrWhiteSpace(enclosure)) sb.AppendLine("Cor da carcaça: " + enclosure);
+                if (currentAppleSnapshot.CycleCount.HasValue) sb.AppendLine("Ciclos de bateria: " + currentAppleSnapshot.CycleCount.Value);
+                if (currentAppleSnapshot.MaximumCapacityPercent.HasValue) sb.AppendLine("Capacidade máxima: " + currentAppleSnapshot.MaximumCapacityPercent.Value + "%");
+            }
+            sb.AppendLine();
+            sb.AppendLine("CATÁLOGO / EVIDÊNCIAS");
+            sb.AppendLine("---------------------");
+            sb.AppendLine("Versão do catálogo: " + (string.IsNullOrWhiteSpace(r.CatalogVersion) ? "fallback técnico / sem correspondência" : r.CatalogVersion));
+            foreach (string e in r.Evidence) sb.AppendLine("- " + e);
+            if (r.Confidence == MatchConfidence.Incomplete) sb.AppendLine("\r\nINCONSISTÊNCIA/DADOS INSUFICIENTES: o Bebel preservou os identificadores técnicos e não chutou um modelo comercial.");
+            return sb.ToString();
+        }
+
+        void AutoRefreshCatalogsStartup()
+        {
+            if (catalogManager == null || isShuttingDown) return;
+            string url = "https://raw.githubusercontent.com/Bebel-155/bebel157/main/Catalogs/catalog-manifest.json";
+            CatalogUpdateResult result = catalogManager.Refresh(url);
+            if (result == null) return;
+            Log("Catálogos no início: " + (result.Message ?? "sem retorno"));
+            if (result.Success && result.Changed && !isShuttingDown)
+                RefreshConnectedDevicesAsync(true);
+        }
+
+        string RefreshDeviceCatalogs()
+        {
+            if (catalogManager == null) return "Gerenciador de catálogos indisponível.";
+            string url = "https://raw.githubusercontent.com/Bebel-155/bebel157/main/Catalogs/catalog-manifest.json";
+            CatalogUpdateResult result = catalogManager.Refresh(url);
+            DeviceCatalog c = catalogManager.Current ?? catalogManager.LoadBestAvailable();
+            if (result.Success) RefreshConnectedDevicesAsync(true);
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine(result.Message);
+            if (c != null)
+            {
+                sb.AppendLine("Fonte: " + c.Source);
+                sb.AppendLine("Android: " + c.Android.Count + " entradas" + (c.Manifest == null ? "" : " • " + c.Manifest.androidVersion));
+                sb.AppendLine("Apple: " + c.Apple.Count + " entradas" + (c.Manifest == null ? "" : " • " + c.Manifest.appleVersion));
+            }
+            return sb.ToString();
+        }
+
+        void RefreshMarketQuoteAsync(bool forceRefresh)
+        {
+            ResolvedDevice device = currentResolvedDevice;
+            if (device == null)
+            {
+                if (marketOutput != null) marketOutput.Text = "Nenhum aparelho identificado para cotação.";
+                return;
+            }
+            if (device.Confidence == MatchConfidence.Incomplete)
+            {
+                if (marketOutput != null) marketOutput.Text = "Identificação incompleta. A cotação automática foi bloqueada para evitar preço do modelo errado.";
+                return;
+            }
+            int generation = deviceProbeGeneration;
+            string transport = device.Device.TransportId;
+            SetBusy(true, "Consultando valor de mercado...");
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                try
+                {
+                    string token = ReadMarketAccessToken();
+                    MarketPriceService service = new MarketPriceService(new MercadoLivreAdapter(token), new PriceNormalizer(), new MarketCache(MarketCacheDir));
+                    Log("Cotação solicitada: " + MarketQuery.FromDevice(device, "MLB", "BRL").ToLogString());
+                    MarketQuote quote = service.GetQuote(device, forceRefresh);
+                    if (isShuttingDown || IsDisposed || !IsHandleCreated || generation != deviceProbeGeneration || selectedDevice == null || !string.Equals(selectedDevice.TransportId, transport, StringComparison.OrdinalIgnoreCase)) return;
+                    BeginInvoke((MethodInvoker)delegate
+                    {
+                        currentMarketQuote = quote;
+                        if (marketOutput != null) marketOutput.Text = FormatMarketQuote(quote);
+                        SetBusy(false, "Pronto");
+                    });
+                }
+                catch (Exception ex)
+                {
+                    if (isShuttingDown || IsDisposed || !IsHandleCreated || generation != deviceProbeGeneration) return;
+                    BeginInvoke((MethodInvoker)delegate
+                    {
+                        if (marketOutput != null)
+                        {
+                            string hint = ex is MarketAuthorizationRequiredException ? "\r\n\r\nUse 'Configurar Mercado Livre' para informar um access token da API oficial." : "";
+                            marketOutput.Text = "Cotação indisponível:\r\n" + SanitizeMarketError(ex.Message) + hint;
+                        }
+                        SetBusy(false, "Cotação indisponível");
+                    });
+                }
+            });
+        }
+
+        string FormatMarketQuote(MarketQuote quote)
+        {
+            if (quote == null) return "Cotação indisponível.";
+            CultureInfo br = new CultureInfo("pt-BR");
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("VALOR DE MERCADO");
+            sb.AppendLine("================");
+            sb.AppendLine((quote.Query == null ? "" : quote.Query.SearchText()));
+            sb.AppendLine("Identificação: " + (currentResolvedDevice == null ? "—" : currentResolvedDevice.ConfidenceLabel));
+            sb.AppendLine();
+            AppendEstimate(sb, "NOVO", quote.NewEstimate, br);
+            sb.AppendLine();
+            AppendEstimate(sb, "USADO", quote.UsedEstimate, br);
+            sb.AppendLine();
+            sb.AppendLine("Valor de referência: " + (quote.ReferenceValue.HasValue ? quote.ReferenceValue.Value.ToString("C", br) : "não disponível"));
+            sb.AppendLine("Mercado: Brasil • " + (quote.Query == null ? "BRL" : quote.Query.Currency));
+            sb.AppendLine("Fonte: " + quote.Source + (quote.IsFromCache ? " • cache local" : " • consulta online"));
+            sb.AppendLine("Atualizado: " + quote.RetrievedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss"));
+            if (quote.IsFromCache) sb.AppendLine("Idade do cache: " + Math.Max(0, (int)quote.CacheAge.TotalMinutes) + " min");
+            if (!string.IsNullOrWhiteSpace(quote.StatusMessage)) sb.AppendLine("Status: " + quote.StatusMessage);
+            sb.AppendLine();
+            sb.AppendLine("Estimativa de mercado. Estado físico, bateria, reparos, garantia e acessórios podem alterar o valor real.");
+            return sb.ToString();
+        }
+
+        void AppendEstimate(StringBuilder sb, string title, MarketEstimate e, CultureInfo br)
+        {
+            sb.AppendLine(title);
+            sb.AppendLine("----");
+            if (e == null || e.ValidListingCount == 0) { sb.AppendLine("Sem anúncios compatíveis suficientes."); return; }
+            sb.AppendLine("Mediana: " + e.Median.ToString("C", br));
+            sb.AppendLine("Faixa: " + e.Min.ToString("C", br) + " – " + e.Max.ToString("C", br));
+            sb.AppendLine("Anúncios válidos: " + e.ValidListingCount);
+        }
+
+        void OpenMarketSources()
+        {
+            ResolvedDevice r = currentResolvedDevice;
+            if (r == null) { MessageBox.Show("Identifique um aparelho primeiro.", AppName, MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+            try
+            {
+                MarketQuery q = MarketQuery.FromDevice(r, "MLB", "BRL");
+                string slug = Uri.EscapeDataString(q.SearchText()).Replace("%20", "-");
+                OpenUrl("https://lista.mercadolivre.com.br/" + slug);
+            }
+            catch (Exception ex) { MessageBox.Show(ex.Message, AppName, MessageBoxButtons.OK, MessageBoxIcon.Information); }
+        }
+
+        void ConfigureMarketToken()
+        {
+            using (Form f = new Form())
+            {
+                f.Text = "Mercado Livre • API"; f.StartPosition = FormStartPosition.CenterParent; f.Size = new Size(560, 220); f.FormBorderStyle = FormBorderStyle.FixedDialog; f.MaximizeBox = false; f.MinimizeBox = false;
+                Label l = new Label(); l.Text = "Access token da API oficial (opcional enquanto a busca pública funcionar):"; l.AutoSize = true; l.Location = new Point(20, 20); f.Controls.Add(l);
+                TextBox box = new TextBox(); box.UseSystemPasswordChar = true; box.Size = new Size(500, 26); box.Location = new Point(20, 52); box.Text = ReadMarketAccessToken(); f.Controls.Add(box);
+                Label note = new Label(); note.Text = "O token é protegido pelo Windows (DPAPI) para o usuário atual e não é enviado ao GitHub."; note.AutoSize = true; note.Location = new Point(20, 84); f.Controls.Add(note);
+                Button save = new Button(); save.Text = "Salvar"; save.Size = new Size(100, 36); save.Location = new Point(310, 125); save.DialogResult = DialogResult.OK; f.Controls.Add(save);
+                Button cancel = new Button(); cancel.Text = "Cancelar"; cancel.Size = new Size(100, 36); cancel.Location = new Point(420, 125); cancel.DialogResult = DialogResult.Cancel; f.Controls.Add(cancel);
+                f.AcceptButton = save; f.CancelButton = cancel;
+                if (f.ShowDialog(this) == DialogResult.OK)
+                {
+                    SaveMarketAccessToken(box.Text.Trim());
+                    if (marketOutput != null) marketOutput.Text = "Configuração do Mercado Livre salva localmente. Clique em 'Atualizar cotação'.";
+                }
+            }
+        }
+
+        string ReadMarketAccessToken()
+        {
+            string encoded = ReadSetting("mercadolivre_access_token_dpapi", "");
+            if (string.IsNullOrWhiteSpace(encoded)) return "";
+            try
+            {
+                byte[] protectedBytes = Convert.FromBase64String(encoded);
+                byte[] clear = ProtectedData.Unprotect(protectedBytes, null, DataProtectionScope.CurrentUser);
+                return Encoding.UTF8.GetString(clear);
+            }
+            catch { return ""; }
+        }
+
+        void SaveMarketAccessToken(string token)
+        {
+            string value = "";
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                byte[] clear = Encoding.UTF8.GetBytes(token);
+                value = Convert.ToBase64String(ProtectedData.Protect(clear, null, DataProtectionScope.CurrentUser));
+            }
+            WriteSetting("mercadolivre_access_token_dpapi", value);
+        }
+
+        string SanitizeMarketError(string message)
+        {
+            string token = ReadMarketAccessToken();
+            string text = message ?? "Erro desconhecido.";
+            if (!string.IsNullOrWhiteSpace(token)) text = text.Replace(token, "[TOKEN]");
+            return text;
+        }
+
+        void RefreshDashboardAsync()
+        {
+            // O painel moderno é alimentado pelo probe do dispositivo selecionado.
+            // A rotina legada BuildDashboardState não deve sobrescrever os dados exatos
+            // retornados pelo AndroidProbe/AppleProbe.
+            RefreshConnectedDevicesAsync(true);
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                string diag = GetDriverDiagnosis();
+                if (isShuttingDown || IsDisposed || !IsHandleCreated) return;
+                BeginInvoke((MethodInvoker)delegate
+                {
                     outputs["Painel"].Text = diag;
                     outputs["Painel"].SelectionStart = 0;
-                    SetBusy(false, "Pronto");
                 });
             });
         }
@@ -1713,6 +2202,30 @@ namespace BebelEquipe155
             return null;
         }
 
+        string TargetToolArguments(string file, string args)
+        {
+            string name = "";
+            try { name = Path.GetFileName(file ?? ""); } catch { }
+            string original = args ?? "";
+            DeviceRef d = selectedDevice;
+            if (d == null) return original;
+
+            if (d.Platform == DevicePlatform.Android && string.Equals(name, "adb.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                string trimmed = original.TrimStart();
+                bool global = trimmed.StartsWith("devices", StringComparison.OrdinalIgnoreCase) || trimmed.StartsWith("start-server", StringComparison.OrdinalIgnoreCase) || trimmed.StartsWith("kill-server", StringComparison.OrdinalIgnoreCase) || trimmed.StartsWith("version", StringComparison.OrdinalIgnoreCase) || trimmed.StartsWith("-s ", StringComparison.OrdinalIgnoreCase);
+                if (!global) return DeviceTargeting.AndroidPrefix(d) + original;
+            }
+
+            if (d.Platform == DevicePlatform.Apple &&
+                (string.Equals(name, "ideviceinfo.exe", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "idevicebackup2.exe", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "idevicediagnostics.exe", StringComparison.OrdinalIgnoreCase)))
+            {
+                if (original.IndexOf("-u ", StringComparison.OrdinalIgnoreCase) < 0)
+                    return "-u \"" + DeviceTargeting.AppleUdid(d) + "\" " + original;
+            }
+            return original;
+        }
+
         string Run(string file, string args, int timeoutSec)
         {
             if (string.IsNullOrEmpty(file)) return "Executável não encontrado.";
@@ -1721,7 +2234,7 @@ namespace BebelEquipe155
             {
                 ProcessStartInfo psi = new ProcessStartInfo();
                 psi.FileName = file;
-                psi.Arguments = args;
+                psi.Arguments = TargetToolArguments(file, args);
                 psi.UseShellExecute = false;
                 psi.CreateNoWindow = true;
                 psi.RedirectStandardOutput = true;
@@ -2246,7 +2759,7 @@ namespace BebelEquipe155
                 string url = "https://api.ipsw.me/v4/device/" + Uri.EscapeDataString(productType.Trim());
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.3");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155/5.2.3");
                     string json = wc.DownloadString(url);
                     string name = JsonStringValue(json, "name");
                     if (!string.IsNullOrWhiteSpace(name)) return name.Trim();
@@ -2368,7 +2881,7 @@ namespace BebelEquipe155
             {
                 string info=ToolPath("ideviceinfo.exe"); string pt=Run(info,"-k ProductType",10).Trim(); string hw=Run(info,"-k HardwareModel",10).Trim(); string mn=Run(info,"-k ModelNumber",10).Trim();
                 string commercial=ResolveAppleMarketingName(pt), expectedBoard="", expectedIdentifier="";
-                try { using(WebClient wc=new WebClient()) { wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.9"); string j=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); expectedBoard=JsonStringValue(j,"boardconfig"); if(!string.IsNullOrWhiteSpace(mn)){ try { string mj=wc.DownloadString("https://ipsw.info/api/v1/model/"+Uri.EscapeDataString(mn)); expectedIdentifier=JsonStringValue(mj,"identifier"); } catch{} } } } catch{}
+                try { using(WebClient wc=new WebClient()) { wc.Headers.Add("User-Agent","BebelEquipe155/5.2"); string j=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); expectedBoard=JsonStringValue(j,"boardconfig"); if(!string.IsNullOrWhiteSpace(mn)){ try { string mj=wc.DownloadString("https://ipsw.info/api/v1/model/"+Uri.EscapeDataString(mn)); expectedIdentifier=JsonStringValue(mj,"identifier"); } catch{} } } } catch{}
                 bool boardOk=string.IsNullOrWhiteSpace(expectedBoard)||string.IsNullOrWhiteSpace(hw)||NormalizeIdentity(expectedBoard)==NormalizeIdentity(hw);
                 bool skuOk=string.IsNullOrWhiteSpace(expectedIdentifier)||string.Equals(expectedIdentifier,pt,StringComparison.OrdinalIgnoreCase);
                 StringBuilder sb=new StringBuilder(); sb.AppendLine("COERÊNCIA DE IDENTIDADE - IPHONE / IOS"); sb.AppendLine("======================================"); sb.AppendLine("Modelo comercial: "+commercial); sb.AppendLine("ProductType: "+pt); sb.AppendLine("HardwareModel: "+hw); sb.AppendLine("ModelNumber: "+mn); sb.AppendLine("ProductType × board config: "+(boardOk?"COERENTE":"INCONSISTENTE")); if(!string.IsNullOrWhiteSpace(expectedBoard)) sb.AppendLine("Board esperado: "+expectedBoard); sb.AppendLine("ModelNumber × ProductType: "+(skuOk?"COERENTE / SEM CONFLITO":"INCONSISTENTE")); if(!string.IsNullOrWhiteSpace(expectedIdentifier)) sb.AppendLine("Identificador esperado pelo SKU: "+expectedIdentifier); sb.AppendLine(); sb.AppendLine((boardOk&&skuOk)?"RESULTADO: nenhum conflito conhecido.":"RESULTADO: identificadores divergentes; valores reais preservados."); return sb.ToString();
@@ -2394,12 +2907,12 @@ namespace BebelEquipe155
         string GithubRawUrl(string path){ string repo=ReadSetting("github_repo","Bebel-155/bebel157").Trim(); return "https://raw.githubusercontent.com/"+repo+"/main/"+path.TrimStart('/'); }
         string ResolveAndroidRenderUrl(string model,string codename)
         {
-            try { using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.9"); string json=wc.DownloadString(GithubRawUrl("device-images.json")); foreach(Match obj in Regex.Matches(json,@"\{[^{}]*\}",RegexOptions.Singleline)){ string match=JsonStringValue(obj.Value,"match"), c=JsonStringValue(obj.Value,"codename"), image=JsonStringValue(obj.Value,"image"); bool mm=!string.IsNullOrWhiteSpace(match)&&(NormalizeIdentity(model).Contains(NormalizeIdentity(match))||NormalizeIdentity(match).Contains(NormalizeIdentity(model))); bool cm=!string.IsNullOrWhiteSpace(c)&&NormalizeIdentity(c)==NormalizeIdentity(codename); if((mm||cm)&&Uri.IsWellFormedUriString(image,UriKind.Absolute)) return image; } } } catch{} return "";
+            try { using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155/5.2"); string json=wc.DownloadString(GithubRawUrl("device-images.json")); foreach(Match obj in Regex.Matches(json,@"\{[^{}]*\}",RegexOptions.Singleline)){ string match=JsonStringValue(obj.Value,"match"), c=JsonStringValue(obj.Value,"codename"), image=JsonStringValue(obj.Value,"image"); bool mm=!string.IsNullOrWhiteSpace(match)&&(NormalizeIdentity(model).Contains(NormalizeIdentity(match))||NormalizeIdentity(match).Contains(NormalizeIdentity(model))); bool cm=!string.IsNullOrWhiteSpace(c)&&NormalizeIdentity(c)==NormalizeIdentity(codename); if((mm||cm)&&Uri.IsWellFormedUriString(image,UriKind.Absolute)) return image; } } } catch{} return "";
         }
         DeviceRenderData GetDeviceRenderData()
         {
             DeviceRenderData d=new DeviceRenderData(); if(AdbState()=="ADB CONECTADO"){ string adb=ToolPath("adb.exe"), model=GetExactAndroidModel(adb), codename=AndroidCodename(adb); d.Key="android|"+model+"|"+codename; d.Caption=model; d.Url=ResolveAndroidRenderUrl(model,codename); d.Source=string.IsNullOrWhiteSpace(d.Url)?"Imagem não cadastrada":"Render do repositório"; return d; }
-            if(IosState()=="IPHONE AUTORIZADO"){ string info=ToolPath("ideviceinfo.exe"), pt=Run(info,"-k ProductType",10).Trim(); d.Key="apple|"+pt; d.Caption=ResolveAppleMarketingName(pt); try{ using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.9"); string json=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); d.Url=JsonStringValue(json,"apple_image"); if(string.IsNullOrWhiteSpace(d.Url)) d.Url=JsonStringValue(json,"imageurl"); } } catch{} d.Source=string.IsNullOrWhiteSpace(d.Url)?"Imagem indisponível":"Render público do modelo"; return d; }
+            if(IosState()=="IPHONE AUTORIZADO"){ string info=ToolPath("ideviceinfo.exe"), pt=Run(info,"-k ProductType",10).Trim(); d.Key="apple|"+pt; d.Caption=ResolveAppleMarketingName(pt); try{ using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155/5.2"); string json=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); d.Url=JsonStringValue(json,"apple_image"); if(string.IsNullOrWhiteSpace(d.Url)) d.Url=JsonStringValue(json,"imageurl"); } } catch{} d.Source=string.IsNullOrWhiteSpace(d.Url)?"Imagem indisponível":"Render público do modelo"; return d; }
             d.Key="none"; d.Caption="B155"; d.Source="Autorize o aparelho para identificar"; return d;
         }
         void RefreshDeviceRenderAsync()
@@ -2706,6 +3219,7 @@ namespace BebelEquipe155
 
         DeviceMetrics GetAndroidMetrics()
         {
+            if (currentResolvedDevice != null && currentResolvedDevice.Device.Platform == DevicePlatform.Android) return MetricsFromCurrentProbe();
             DeviceMetrics m = new DeviceMetrics();
             string adb = ToolPath("adb.exe");
             if (adb == null || AdbState() != "ADB CONECTADO")
@@ -2738,6 +3252,7 @@ namespace BebelEquipe155
 
         DeviceMetrics GetIosMetrics()
         {
+            if (currentResolvedDevice != null && currentResolvedDevice.Device.Platform == DevicePlatform.Apple) return MetricsFromCurrentProbe();
             DeviceMetrics m = new DeviceMetrics();
             string info = ToolPath("ideviceinfo.exe");
             string id = ToolPath("idevice_id.exe");
@@ -2776,6 +3291,13 @@ namespace BebelEquipe155
 
         void RefreshDetailedInfo(string mode)
         {
+            if (currentResolvedDevice != null && (mode == "auto" || mode == "" || (mode == "android" && currentResolvedDevice.Device.Platform == DevicePlatform.Android) || (mode == "ios" && currentResolvedDevice.Device.Platform == DevicePlatform.Apple)))
+            {
+                DeviceMetrics currentMetrics = MetricsFromCurrentProbe();
+                infoSystemValue.Text = currentMetrics.System; infoBatteryValue.Text = currentMetrics.Battery; infoRamValue.Text = currentMetrics.Ram; infoStorageValue.Text = currentMetrics.Storage; infoResolutionValue.Text = currentMetrics.Resolution;
+                outputs["Informações"].Text = BuildResolvedDeviceDetails(); outputs["Informações"].SelectionStart = 0;
+                return;
+            }
             SetBusy(true, "Lendo informações detalhadas...");
             ThreadPool.QueueUserWorkItem(delegate
             {
@@ -2887,6 +3409,7 @@ namespace BebelEquipe155
 
         string GetDetailedDeviceInfo()
         {
+            if (currentResolvedDevice != null) return BuildResolvedDeviceDetails();
             string adb = AdbState();
             string ios = IosState();
             if (adb == "ADB CONECTADO") return GetDetailedAndroidInfo();
@@ -2904,6 +3427,7 @@ namespace BebelEquipe155
 
         string GetDetailedAndroidInfo()
         {
+            if (currentResolvedDevice != null && currentResolvedDevice.Device.Platform == DevicePlatform.Android) return BuildResolvedDeviceDetails();
             string adb = ToolPath("adb.exe");
             if (adb == null) return "ADB ausente. Abra Ferramentas e instale ADB/Fastboot.";
             if (AdbState() != "ADB CONECTADO") return "Android não conectado/autorizado via ADB.";
@@ -2961,6 +3485,7 @@ namespace BebelEquipe155
 
         string GetDetailedIosInfo()
         {
+            if (currentResolvedDevice != null && currentResolvedDevice.Device.Platform == DevicePlatform.Apple) return BuildResolvedDeviceDetails();
             string info = ToolPath("ideviceinfo.exe");
             string id = ToolPath("idevice_id.exe");
             if (info == null || id == null) return "iOS Tools ausentes. Abra Ferramentas > Configurar iPhone.";
@@ -3027,7 +3552,7 @@ namespace BebelEquipe155
                 if (!File.Exists(SettingsFile))
                 {
                     string text =
-                        "# Bebel Equipe Do Mais Novo 155 v5.1.7\r\n" +
+                        "# Bebel Equipe Do Mais Novo 155 v5.2.0\r\n" +
                         "# Para update online, informe a URL HTTPS de um manifest.json.\r\n" +
                         "update_source=github\r\n" +
                         "github_repo=Bebel-155/bebel157\r\n" +
@@ -3035,7 +3560,8 @@ namespace BebelEquipe155
                         "auto_check_updates=true\r\n" +
                         "auto_check_dependencies=true\r\n" +
                         "auto_install_app_updates=false\r\n" +
-                        "auto_install_dependencies=false\r\n";
+                        "auto_install_dependencies=false\r\n" +
+                        "mercadolivre_access_token_dpapi=\r\n";
                     File.WriteAllText(SettingsFile, text, Encoding.UTF8);
                 }
             }
@@ -3120,6 +3646,27 @@ namespace BebelEquipe155
             return fallback;
         }
 
+        void WriteSetting(string name, string value)
+        {
+            EnsureSettings();
+            List<string> lines = File.Exists(SettingsFile) ? File.ReadAllLines(SettingsFile).ToList() : new List<string>();
+            bool found = false;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                string line = (lines[i] ?? "").Trim();
+                int pos = line.IndexOf('=');
+                if (pos <= 0) continue;
+                if (string.Equals(line.Substring(0, pos).Trim(), name, StringComparison.OrdinalIgnoreCase))
+                {
+                    lines[i] = name + "=" + (value ?? "");
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) lines.Add(name + "=" + (value ?? ""));
+            File.WriteAllLines(SettingsFile, lines.ToArray(), Encoding.UTF8);
+        }
+
         bool SettingBool(string name, bool fallback)
         {
             string v = ReadSetting(name, fallback ? "true" : "false");
@@ -3140,7 +3687,7 @@ namespace BebelEquipe155
                 string api = "https://api.github.com/repos/" + repo;
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.9");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155/5.2");
                     wc.Headers.Add("Accept", "application/vnd.github+json");
                     wc.DownloadString(api);
                     return true;
@@ -3173,7 +3720,7 @@ namespace BebelEquipe155
             {
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.9");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155/5.2");
                     wc.Headers.Add("Accept", "application/vnd.github+json");
                     json = wc.DownloadString(api);
                 }
@@ -3210,38 +3757,34 @@ namespace BebelEquipe155
                 throw;
             }
 
-            string tag = JsonStringValue(json, "tag_name");
-            string body = JsonStringValue(json, "body");
-            if (string.IsNullOrWhiteSpace(tag))
+            GithubReleaseInfo release = GithubReleaseParser.Parse(json);
+            if (release == null || string.IsNullOrWhiteSpace(release.TagName))
             {
                 lastGithubUpdateProblem = "A Release encontrada não possui tag de versão válida.";
                 return null;
             }
 
-            string version = tag.Trim();
+            string version = release.TagName.Trim();
             if (version.StartsWith("v", StringComparison.OrdinalIgnoreCase)) version = version.Substring(1);
-            string assetUrl = "", digest = "";
+            string assetUrl = release.PortableExe == null ? "" : release.PortableExe.DownloadUrl;
+            string assetName = release.PortableExe == null ? "" : release.PortableExe.Name;
+            string digest = release.PortableExe == null ? "" : (release.PortableExe.Digest ?? "");
+            if (!string.IsNullOrWhiteSpace(digest) && digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)) digest = digest.Substring(7);
+            else if (!Regex.IsMatch(digest ?? "", @"(?i)^[a-f0-9]{64}$")) digest = "";
 
-            foreach (Match obj in Regex.Matches(json, @"\{[^{}]*\}", RegexOptions.Singleline))
+            if (!string.IsNullOrWhiteSpace(assetUrl) && string.IsNullOrWhiteSpace(digest) && !string.IsNullOrWhiteSpace(release.Sha256AssetUrl))
             {
-                string name = JsonStringValue(obj.Value, "name");
-                string url = JsonStringValue(obj.Value, "browser_download_url");
-                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(url)) continue;
-                if (!name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) continue;
-                if (name.IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0) continue;
-
-                bool shortName =
-                    name.StartsWith("Bebel-155_V", StringComparison.OrdinalIgnoreCase);
-
-                bool legacyName =
-                    name.IndexOf("Bebel_Equipe_Do_Mais_Novo_155", StringComparison.OrdinalIgnoreCase) >= 0;
-
-                if (!shortName && !legacyName) continue;
-
-                assetUrl = url;
-                string d = JsonStringValue(obj.Value, "digest");
-                if (!string.IsNullOrWhiteSpace(d) && d.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)) digest = d.Substring(7);
-                break;
+                try
+                {
+                    using (WebClient wc = new WebClient())
+                    {
+                        wc.Headers.Add("User-Agent", "BebelEquipe155/5.2");
+                        string hashText = wc.DownloadString(release.Sha256AssetUrl);
+                        Match hm = Regex.Match(hashText ?? "", @"(?i)\b[a-f0-9]{64}\b");
+                        if (hm.Success) digest = hm.Value.ToLowerInvariant();
+                    }
+                }
+                catch { }
             }
 
             if (string.IsNullOrWhiteSpace(assetUrl))
@@ -3257,7 +3800,7 @@ namespace BebelEquipe155
             m.version = version;
             m.downloadUrl = assetUrl;
             m.sha256 = digest;
-            m.notes = string.IsNullOrWhiteSpace(body) ? "Release publicada em " + repo : body;
+            m.notes = string.IsNullOrWhiteSpace(release.Body) ? "Release publicada em " + repo : release.Body;
             return m;
         }
 
@@ -3269,7 +3812,7 @@ namespace BebelEquipe155
                 ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155/5.2");
                     return wc.DownloadString(url);
                 }
             }
@@ -3369,19 +3912,21 @@ namespace BebelEquipe155
             string newExe = Path.Combine(UpdateDir, "Bebel-155_V" + safeVersion + ".exe");
             using (WebClient wc = new WebClient())
             {
-                wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1");
+                wc.Headers.Add("User-Agent", "BebelEquipe155/5.2");
                 wc.DownloadFile(pendingManifest.downloadUrl, newExe);
             }
 
             if (!File.Exists(newExe)) return "O download da atualização não foi criado.";
-            if (!string.IsNullOrWhiteSpace(pendingManifest.sha256))
+            if (string.IsNullOrWhiteSpace(pendingManifest.sha256))
             {
-                string actual = FileSha256(newExe);
-                if (!string.Equals(actual, pendingManifest.sha256.Trim(), StringComparison.OrdinalIgnoreCase))
-                {
-                    try { File.Delete(newExe); } catch { }
-                    return "Falha de integridade: SHA-256 não corresponde ao manifest.json.";
-                }
+                try { File.Delete(newExe); } catch { }
+                return "Atualização rejeitada: a Release não forneceu SHA-256 do EXE.";
+            }
+            string actual = FileSha256(newExe);
+            if (!string.Equals(actual, pendingManifest.sha256.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                try { File.Delete(newExe); } catch { }
+                return "Falha de integridade: SHA-256 do EXE não corresponde à Release.";
             }
 
             string current = Application.ExecutablePath;
@@ -3409,11 +3954,13 @@ namespace BebelEquipe155
                 return;
             }
 
-            string hashWarning = string.IsNullOrWhiteSpace(pendingManifest.sha256)
-                ? "\r\n\r\nAVISO: o manifesto não informou SHA-256. Confirme que a fonte é sua e confiável."
-                : "";
+            if (string.IsNullOrWhiteSpace(pendingManifest.sha256))
+            {
+                MessageBox.Show("A atualização foi recusada porque a Release não forneceu SHA-256 do EXE.", AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
-            if (MessageBox.Show("Baixar e preparar a versão " + pendingManifest.version + "?" + hashWarning,
+            if (MessageBox.Show("Baixar, validar SHA-256 e preparar a versão " + pendingManifest.version + "?",
                 AppName, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 
             SetBusy(true, "Baixando atualização do Bebel 155...");
@@ -3620,7 +4167,7 @@ namespace BebelEquipe155
 
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.9");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155/5.2");
                     wc.DownloadFile(url, zip);
                 }
 
@@ -3947,6 +4494,15 @@ namespace BebelEquipe155
         {
             if (x == null) x = "";
             return "\"" + x.Replace("\"", "\"\"") + "\"";
+        }
+
+        class DeviceProbeResult
+        {
+            public DeviceRef Device;
+            public AndroidSnapshot Android;
+            public AppleSnapshot Apple;
+            public ResolvedDevice Resolved;
+            public string Error;
         }
 
         class UsbDevice

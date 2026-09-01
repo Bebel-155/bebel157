@@ -1,6 +1,6 @@
 ﻿#define MyAppName "Bebel Equipe Do Mais Novo 155"
-#define MyAppVersion "5.1.9"
-#define MyAppExeName "Bebel-155_V5_1_9.exe"
+#define MyAppVersion "5.2.0"
+#define MyAppExeName "Bebel-155_V5_2_0.exe"
 
 [Setup]
 AppId={{A6E8A4F4-0E29-4E78-A9B4-155BEBE10012}
@@ -11,7 +11,7 @@ DefaultDirName={autopf}\Bebel Equipe Do Mais Novo 155
 DefaultGroupName=Bebel Equipe Do Mais Novo 155
 DisableProgramGroupPage=yes
 OutputDir=dist
-OutputBaseFilename=Bebel-155_Setup_V5_1_9
+OutputBaseFilename=Bebel-155_Setup_V5_2_0
 SetupIconFile=Assets\bebel155.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
@@ -37,6 +37,9 @@ Source: "CONFIGURAR_DEPENDENCIAS_V5_1.bat"; DestDir: "{app}\Ferramentas"; Flags:
 Source: "INSTALAR_DEPENDENCIAS_BEBEL155.ps1"; DestDir: "{app}\Ferramentas"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "Atualizacao\COMO_CONFIGURAR_UPDATE.txt"; DestDir: "{app}\Atualizacao"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "Atualizacao\manifest.example.json"; DestDir: "{app}\Atualizacao"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "Catalogs\android_devices.json"; DestDir: "{app}\Catalogs"; Flags: ignoreversion
+Source: "Catalogs\apple_devices.json"; DestDir: "{app}\Catalogs"; Flags: ignoreversion
+Source: "Catalogs\catalog-manifest.json"; DestDir: "{app}\Catalogs"; Flags: ignoreversion
 
 [Icons]
 Name: "{autodesktop}\Bebel Equipe Do Mais Novo 155"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"

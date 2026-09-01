@@ -1,0 +1,40 @@
+BEBEL 155 v5.2.0 - STATUS DE IMPLEMENTACAO
+
+IMPLEMENTADO
+[OK] Descoberta de multiplos Android e Apple
+[OK] Seletor de dispositivo
+[OK] ADB por serial selecionado
+[OK] libimobiledevice por UDID selecionado
+[OK] Android getprop / RAM / armazenamento / bateria / tela
+[OK] Apple ProductType / HardwareModel / armazenamento / bateria
+[OK] Resolver EXATO / PROVAVEL / INCOMPLETO
+[OK] Catalogos Android/Apple com SHA-256 e cache local
+[OK] Workflow diario de catalogos
+[OK] Atualizacao dos catalogos na inicializacao
+[OK] Valor de Mercado NOVO + USADO
+[OK] Mediana, filtros de acessorios/capacidade e outliers
+[OK] Cache de cotacao por 6 horas
+[OK] Token Mercado Livre protegido por DPAPI
+[OK] Parser robusto de GitHub Release
+[OK] SHA-256 obrigatorio no updater v5.2.0
+[OK] manifest.json de compatibilidade para migrar v5.1.9 pelo painel
+[OK] Publicador por clone temporario, sem force push
+
+VERIFICADO NESTE AMBIENTE
+[OK] YAML dos dois workflows valido
+[OK] hashes dos catalogos seed conferem
+[OK] gerador de catalogos passou fixtures e validacao
+[OK] validacao estrutural de 17 fontes C# de producao
+[OK] scanner lexical de delimitadores das fontes C#
+[OK] arquivos exigidos pelos test runners existem
+[OK] Inno [Icons] sem o flag invalido anterior
+
+PENDENTE DE WINDOWS/GITHUB
+[ ] Compilar testes C# com csc.exe no runner Windows
+[ ] Compilar Bebel-155_V5_2_0.exe
+[ ] Compilar Bebel-155_Setup_V5_2_0.exe
+[ ] Publicar Release v5.2.0
+[ ] Testar update real partindo da instalacao v5.1.9
+
+PROXIMO PASSO
+Execute PUBLICAR_NO_GITHUB.bat e acompanhe GitHub > Actions > job "liberar".

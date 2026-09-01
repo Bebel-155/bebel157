@@ -1,0 +1,45 @@
+name: Atualizar catalogos de dispositivos
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "scripts/update_device_catalogs.py"
+      - ".github/workflows/update-device-catalogs.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  catalogos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Atualizar catalogos
+        run: python scripts/update_device_catalogs.py --output-dir Catalogs
+
+      - name: Validar catalogos
+        run: python scripts/update_device_catalogs.py --validate-only --output-dir Catalogs
+
+      - name: Publicar mudancas
+        shell: bash
+        run: |
+          if git diff --quiet -- Catalogs; then
+            echo "Catalogos sem alteracoes."
+            exit 0
+          fi
+          git config user.name "Bebel-155 Catalog Bot"
+          git config user.email "bebel155@users.noreply.github.com"
+          git add Catalogs/android_devices.json Catalogs/apple_devices.json Catalogs/catalog-manifest.json
+          git commit -m "data: refresh device catalogs"
+          git push origin HEAD:main
