@@ -1,0 +1,33 @@
+﻿BEBEL 155 v5.1.8 - PUBLICADOR GITHUB CORRIGIDO
+
+ERRO CORRIGIDO
+"Please move or remove them before you merge."
+"Aborting"
+"Houve conflito ao integrar a branch main."
+
+CAUSA
+O publicador anterior inicializava Git dentro da propria pasta extraida
+do Bebel 155 e depois executava git pull --rebase. Como essa pasta ja
+continha arquivos locais com os mesmos nomes de arquivos rastreados no
+GitHub, o Git recusava a operacao para nao sobrescrever dados.
+
+NOVO FLUXO
+PUBLICAR_NO_GITHUB.bat agora:
+1. NAO faz git pull/rebase na pasta do Bebel.
+2. Cria uma pasta temporaria isolada em %TEMP%.
+3. Clona https://github.com/Bebel-155/bebel157.git.
+4. Copia os arquivos da v5.1.8 para o clone limpo.
+5. Preserva device-images.json do repositorio quando ele ja existe.
+6. Remove somente arquivos versionados antigos do Bebel.
+7. Cria o commit no clone temporario.
+8. Faz git push origin HEAD:main.
+9. Nao usa force push.
+10. Apaga o clone temporario apenas depois de um push bem-sucedido.
+
+COMO USAR
+Feche a janela anterior e execute novamente:
+PUBLICAR_NO_GITHUB.bat
+
+Se o GitHub pedir autenticacao, conclua pelo navegador.
+
+Depois, abra GitHub > Actions e acompanhe o job "liberar".

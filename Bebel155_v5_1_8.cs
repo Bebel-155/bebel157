@@ -331,7 +331,7 @@ namespace BebelEquipe155
     public class MainForm : Form
     {
         readonly string AppName = "Bebel Equipe Do Mais Novo 155";
-        readonly string AppVersion = "5.1.7";
+        readonly string AppVersion = "5.1.8";
 
         string BaseDir, LogDir, ReportDir, BackupDir, ToolsDir, DownloadDir, ScreenshotDir, ExportDir, HistoryDir, PlatformToolsDir, UpdateDir, SettingsFile, LogFile;
         UpdateManifest pendingManifest;
@@ -556,7 +556,7 @@ namespace BebelEquipe155
             }
 
             Label footer = new Label();
-            footer.Text = "v5.1.7 • USB / Android / iOS";
+            footer.Text = "v5.1.8 • USB / Android / iOS";
             footer.ForeColor = Color.FromArgb(145, 155, 172);
             footer.Font = FSmall;
             footer.AutoSize = true;
@@ -2071,7 +2071,7 @@ namespace BebelEquipe155
             {
                 string info=ToolPath("ideviceinfo.exe"); string pt=Run(info,"-k ProductType",10).Trim(); string hw=Run(info,"-k HardwareModel",10).Trim(); string mn=Run(info,"-k ModelNumber",10).Trim();
                 string commercial=ResolveAppleMarketingName(pt), expectedBoard="", expectedIdentifier="";
-                try { using(WebClient wc=new WebClient()) { wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.7"); string j=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); expectedBoard=JsonStringValue(j,"boardconfig"); if(!string.IsNullOrWhiteSpace(mn)){ try { string mj=wc.DownloadString("https://ipsw.info/api/v1/model/"+Uri.EscapeDataString(mn)); expectedIdentifier=JsonStringValue(mj,"identifier"); } catch{} } } } catch{}
+                try { using(WebClient wc=new WebClient()) { wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.8"); string j=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); expectedBoard=JsonStringValue(j,"boardconfig"); if(!string.IsNullOrWhiteSpace(mn)){ try { string mj=wc.DownloadString("https://ipsw.info/api/v1/model/"+Uri.EscapeDataString(mn)); expectedIdentifier=JsonStringValue(mj,"identifier"); } catch{} } } } catch{}
                 bool boardOk=string.IsNullOrWhiteSpace(expectedBoard)||string.IsNullOrWhiteSpace(hw)||NormalizeIdentity(expectedBoard)==NormalizeIdentity(hw);
                 bool skuOk=string.IsNullOrWhiteSpace(expectedIdentifier)||string.Equals(expectedIdentifier,pt,StringComparison.OrdinalIgnoreCase);
                 StringBuilder sb=new StringBuilder(); sb.AppendLine("COERÊNCIA DE IDENTIDADE - IPHONE / IOS"); sb.AppendLine("======================================"); sb.AppendLine("Modelo comercial: "+commercial); sb.AppendLine("ProductType: "+pt); sb.AppendLine("HardwareModel: "+hw); sb.AppendLine("ModelNumber: "+mn); sb.AppendLine("ProductType × board config: "+(boardOk?"COERENTE":"INCONSISTENTE")); if(!string.IsNullOrWhiteSpace(expectedBoard)) sb.AppendLine("Board esperado: "+expectedBoard); sb.AppendLine("ModelNumber × ProductType: "+(skuOk?"COERENTE / SEM CONFLITO":"INCONSISTENTE")); if(!string.IsNullOrWhiteSpace(expectedIdentifier)) sb.AppendLine("Identificador esperado pelo SKU: "+expectedIdentifier); sb.AppendLine(); sb.AppendLine((boardOk&&skuOk)?"RESULTADO: nenhum conflito conhecido.":"RESULTADO: identificadores divergentes; valores reais preservados."); return sb.ToString();
@@ -2097,12 +2097,12 @@ namespace BebelEquipe155
         string GithubRawUrl(string path){ string repo=ReadSetting("github_repo","Bebel-155/bebel157").Trim(); return "https://raw.githubusercontent.com/"+repo+"/main/"+path.TrimStart('/'); }
         string ResolveAndroidRenderUrl(string model,string codename)
         {
-            try { using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.7"); string json=wc.DownloadString(GithubRawUrl("device-images.json")); foreach(Match obj in Regex.Matches(json,@"\{[^{}]*\}",RegexOptions.Singleline)){ string match=JsonStringValue(obj.Value,"match"), c=JsonStringValue(obj.Value,"codename"), image=JsonStringValue(obj.Value,"image"); bool mm=!string.IsNullOrWhiteSpace(match)&&(NormalizeIdentity(model).Contains(NormalizeIdentity(match))||NormalizeIdentity(match).Contains(NormalizeIdentity(model))); bool cm=!string.IsNullOrWhiteSpace(c)&&NormalizeIdentity(c)==NormalizeIdentity(codename); if((mm||cm)&&Uri.IsWellFormedUriString(image,UriKind.Absolute)) return image; } } } catch{} return "";
+            try { using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.8"); string json=wc.DownloadString(GithubRawUrl("device-images.json")); foreach(Match obj in Regex.Matches(json,@"\{[^{}]*\}",RegexOptions.Singleline)){ string match=JsonStringValue(obj.Value,"match"), c=JsonStringValue(obj.Value,"codename"), image=JsonStringValue(obj.Value,"image"); bool mm=!string.IsNullOrWhiteSpace(match)&&(NormalizeIdentity(model).Contains(NormalizeIdentity(match))||NormalizeIdentity(match).Contains(NormalizeIdentity(model))); bool cm=!string.IsNullOrWhiteSpace(c)&&NormalizeIdentity(c)==NormalizeIdentity(codename); if((mm||cm)&&Uri.IsWellFormedUriString(image,UriKind.Absolute)) return image; } } } catch{} return "";
         }
         DeviceRenderData GetDeviceRenderData()
         {
             DeviceRenderData d=new DeviceRenderData(); if(AdbState()=="ADB CONECTADO"){ string adb=ToolPath("adb.exe"), model=GetExactAndroidModel(adb), codename=AndroidCodename(adb); d.Key="android|"+model+"|"+codename; d.Caption=model; d.Url=ResolveAndroidRenderUrl(model,codename); d.Source=string.IsNullOrWhiteSpace(d.Url)?"Imagem não cadastrada":"Render do repositório"; return d; }
-            if(IosState()=="IPHONE AUTORIZADO"){ string info=ToolPath("ideviceinfo.exe"), pt=Run(info,"-k ProductType",10).Trim(); d.Key="apple|"+pt; d.Caption=ResolveAppleMarketingName(pt); try{ using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.7"); string json=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); d.Url=JsonStringValue(json,"apple_image"); if(string.IsNullOrWhiteSpace(d.Url)) d.Url=JsonStringValue(json,"imageurl"); } } catch{} d.Source=string.IsNullOrWhiteSpace(d.Url)?"Imagem indisponível":"Render público do modelo"; return d; }
+            if(IosState()=="IPHONE AUTORIZADO"){ string info=ToolPath("ideviceinfo.exe"), pt=Run(info,"-k ProductType",10).Trim(); d.Key="apple|"+pt; d.Caption=ResolveAppleMarketingName(pt); try{ using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.8"); string json=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); d.Url=JsonStringValue(json,"apple_image"); if(string.IsNullOrWhiteSpace(d.Url)) d.Url=JsonStringValue(json,"imageurl"); } } catch{} d.Source=string.IsNullOrWhiteSpace(d.Url)?"Imagem indisponível":"Render público do modelo"; return d; }
             d.Key="none"; d.Caption="B155"; d.Source="Autorize o aparelho para identificar"; return d;
         }
         void RefreshDeviceRenderAsync()
@@ -2843,7 +2843,7 @@ namespace BebelEquipe155
                 string api = "https://api.github.com/repos/" + repo;
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.7");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.8");
                     wc.Headers.Add("Accept", "application/vnd.github+json");
                     wc.DownloadString(api);
                     return true;
@@ -2876,7 +2876,7 @@ namespace BebelEquipe155
             {
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.7");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.8");
                     wc.Headers.Add("Accept", "application/vnd.github+json");
                     json = wc.DownloadString(api);
                 }
@@ -3323,7 +3323,7 @@ namespace BebelEquipe155
 
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.7");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.8");
                     wc.DownloadFile(url, zip);
                 }
 

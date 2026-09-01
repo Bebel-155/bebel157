@@ -1,0 +1,44 @@
+﻿BEBEL EQUIPE DO MAIS NOVO 155 - v5.1.8
+
+CORRECAO DO GITHUB ACTIONS
+
+Erro observado:
+CS1566 - Error reading resource file ... Assets\logo_b155.png
+CS1566 - Error reading resource file ... Assets\banner_b155.png
+The filename, directory name, or volume label syntax is incorrect.
+
+CAUSA
+O PowerShell do runner estava repassando ao csc.exe os argumentos /resource:
+com aspas em uma forma que virava parte do caminho.
+
+CORRECAO
+- Resolve-Path para fonte, ICO, logo e banner.
+- Caminhos absolutos.
+- Argumentos do csc.exe montados em $cscArgs.
+- /resource:<caminho>,<nome> e enviado como UM argumento.
+- Referencias .NET sao resolvidas pelo diretorio real do csc.exe.
+- Nova etapa "Validar arquivos do build" antes da compilacao.
+- O workflow para imediatamente com mensagem clara se um asset faltar.
+- Verificacao de codigo de saida do csc.exe e Inno Setup.
+
+REPOSITORIO
+https://github.com/Bebel-155/bebel157
+
+PUBLICAR
+Execute:
+PUBLICAR_NO_GITHUB.bat
+
+O proximo push deve ser o run 2 e, pela numeracao automatica atual,
+sera publicado como v5.1.8.
+
+ARQUIVOS ESPERADOS NA RELEASE
+Bebel-155_V5_1_8.exe
+Bebel-155_V5_1_8.exe.sha256
+Bebel-155_Setup_V5_1_8.exe
+Bebel-155_Setup_V5_1_8.exe.sha256
+
+COMPILAR LOCALMENTE
+CRIAR_EXE_V5_1_8.bat
+
+SETUP LOCAL
+CRIAR_SETUP_V5_1_8.bat

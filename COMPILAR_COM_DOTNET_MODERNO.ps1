@@ -2,7 +2,7 @@
     [Parameter(Mandatory=$true)][string]$SourceDir,
     [Parameter(Mandatory=$true)][string]$OutputExe,
     [Parameter(Mandatory=$true)][string]$LogFile,
-    [string]$SourceFile = "Bebel155_v5_1_7.cs"
+    [string]$SourceFile = "Bebel155_v5_1_8.cs"
 )
 
 $ErrorActionPreference = "Stop"

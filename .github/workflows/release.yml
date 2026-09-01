@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   release:
+    name: liberar
     runs-on: windows-latest
 
     steps:
@@ -20,31 +21,64 @@ jobs:
         id: version
         shell: pwsh
         run: |
+          # O primeiro workflow falhou no run 1. O proximo push (run 2) gera 5.1.8.
           $patch = 6 + [int]"${{ github.run_number }}"
           $version = "5.1.$patch"
           $fileVersion = "V" + ($version -replace '\.','_')
           "version=$version" >> $env:GITHUB_OUTPUT
           "file_version=$fileVersion" >> $env:GITHUB_OUTPUT
 
-          $src = "Bebel155_v5_1_7.cs"
+          $src = "Bebel155_v5_1_8.cs"
+          if (!(Test-Path $src)) { throw "Fonte nao encontrada: $src" }
+
           $text = Get-Content $src -Raw
           $text = $text -replace 'readonly string AppVersion = "[^"]+";', ('readonly string AppVersion = "' + $version + '";')
           $text = $text -replace 'footer.Text = "v[^"]+ • USB / Android / iOS";', ('footer.Text = "v' + $version + ' • USB / Android / iOS";')
           Set-Content -Path $src -Value $text -Encoding UTF8
 
-          $iss = "Bebel155_v5_1_7.iss"
+          $iss = "Bebel155_v5_1_8.iss"
+          if (!(Test-Path $iss)) { throw "Arquivo Inno Setup nao encontrado: $iss" }
+
           $i = Get-Content $iss -Raw
           $i = $i -replace '#define MyAppVersion "[^"]+"', ('#define MyAppVersion "' + $version + '"')
           $i = $i -replace '#define MyAppExeName "[^"]+"', ('#define MyAppExeName "Bebel-155_' + $fileVersion + '.exe"')
           $i = $i -replace 'OutputBaseFilename=.*', ('OutputBaseFilename=Bebel-155_Setup_' + $fileVersion)
           Set-Content -Path $iss -Value $i -Encoding UTF8
 
+      - name: Validar arquivos do build
+        shell: pwsh
+        run: |
+          $required = @(
+            "Bebel155_v5_1_8.cs",
+            "Bebel155_v5_1_8.iss",
+            "Assets\bebel155.ico",
+            "Assets\logo_b155.png",
+            "Assets\banner_b155.png"
+          )
+
+          foreach ($file in $required) {
+            if (!(Test-Path $file)) {
+              throw "Arquivo obrigatorio ausente: $file"
+            }
+            $item = Get-Item $file
+            Write-Host ("OK  {0}  ({1} bytes)" -f $item.FullName, $item.Length)
+          }
+
       - name: Compilar EXE
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build | Out-Null
+
           $fileVersion = "${{ steps.version.outputs.file_version }}"
-          $exe = "build\Bebel-155_$fileVersion.exe"
+
+          # Resolve todos os caminhos ANTES de montar os argumentos.
+          # Isso evita o CS1566 causado pelas aspas dentro de /resource:.
+          $source = (Resolve-Path "Bebel155_v5_1_8.cs").Path
+          $icon = (Resolve-Path "Assets\bebel155.ico").Path
+          $logo = (Resolve-Path "Assets\logo_b155.png").Path
+          $banner = (Resolve-Path "Assets\banner_b155.png").Path
+          $buildDir = (Resolve-Path "build").Path
+          $exe = Join-Path $buildDir ("Bebel-155_" + $fileVersion + ".exe")
 
           $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
           if (!(Test-Path $csc)) {
@@ -54,23 +88,57 @@ jobs:
             throw "csc.exe nao encontrado."
           }
 
-          & $csc /nologo /target:winexe /optimize+ /platform:anycpu /codepage:65001 `
-            /out:"$exe" `
-            /win32icon:"Assets\bebel155.ico" `
-            /resource:"Assets\logo_b155.png",Bebel155.Logo `
-            /resource:"Assets\banner_b155.png",Bebel155.Banner `
-            /reference:System.dll `
-            /reference:System.Core.dll `
-            /reference:System.Drawing.dll `
-            /reference:System.Windows.Forms.dll `
-            /reference:System.Management.dll `
-            /reference:System.IO.Compression.dll `
-            /reference:System.IO.Compression.FileSystem.dll `
-            "Bebel155_v5_1_7.cs"
+          $frameworkDir = Split-Path $csc -Parent
+
+          $references = @(
+            "System.dll",
+            "System.Core.dll",
+            "System.Drawing.dll",
+            "System.Windows.Forms.dll",
+            "System.Management.dll",
+            "System.IO.Compression.dll",
+            "System.IO.Compression.FileSystem.dll"
+          )
+
+          $cscArgs = @(
+            "/nologo",
+            "/target:winexe",
+            "/optimize+",
+            "/platform:anycpu",
+            "/codepage:65001",
+            ("/out:" + $exe),
+            ("/win32icon:" + $icon),
+            ("/resource:" + $logo + ",Bebel155.Logo"),
+            ("/resource:" + $banner + ",Bebel155.Banner")
+          )
+
+          foreach ($ref in $references) {
+            $refPath = Join-Path $frameworkDir $ref
+            if (!(Test-Path $refPath)) {
+              throw "Referencia .NET ausente: $refPath"
+            }
+            $cscArgs += ("/reference:" + $refPath)
+          }
+
+          $cscArgs += $source
+
+          Write-Host "Compilador: $csc"
+          Write-Host "Fonte: $source"
+          Write-Host "Logo: $logo"
+          Write-Host "Banner: $banner"
+          Write-Host "Saida: $exe"
+
+          & $csc @cscArgs
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "csc.exe terminou com codigo $LASTEXITCODE."
+          }
 
           if (!(Test-Path $exe)) {
             throw "EXE nao criado: $exe"
           }
+
+          Write-Host "EXE criado: $exe"
 
       - name: Instalar Inno Setup
         shell: pwsh
@@ -83,9 +151,20 @@ jobs:
           if (!(Test-Path $iscc)) {
             $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
           }
-          & $iscc "Bebel155_v5_1_7.iss"
+          if (!(Test-Path $iscc)) {
+            throw "ISCC.exe nao encontrado."
+          }
+
+          & $iscc "Bebel155_v5_1_8.iss"
+
           if ($LASTEXITCODE -ne 0) {
-            throw "Falha ao compilar Setup."
+            throw "Falha ao compilar Setup. Codigo: $LASTEXITCODE"
+          }
+
+          $fileVersion = "${{ steps.version.outputs.file_version }}"
+          $setup = "dist\Bebel-155_Setup_$fileVersion.exe"
+          if (!(Test-Path $setup)) {
+            throw "Setup nao encontrado apos compilacao: $setup"
           }
 
       - name: Calcular SHA-256
@@ -95,9 +174,8 @@ jobs:
           $exe = "build\Bebel-155_$fileVersion.exe"
           $setup = "dist\Bebel-155_Setup_$fileVersion.exe"
 
-          if (!(Test-Path $setup)) {
-            throw "Setup nao encontrado: $setup"
-          }
+          if (!(Test-Path $exe)) { throw "EXE ausente: $exe" }
+          if (!(Test-Path $setup)) { throw "Setup ausente: $setup" }
 
           (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower() |
             Set-Content "$exe.sha256"

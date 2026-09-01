@@ -1,6 +1,6 @@
 ﻿#define MyAppName "Bebel Equipe Do Mais Novo 155"
-#define MyAppVersion "5.1.7"
-#define MyAppExeName "Bebel-155_V5_1_7.exe"
+#define MyAppVersion "5.1.8"
+#define MyAppExeName "Bebel-155_V5_1_8.exe"
 
 [Setup]
 AppId={{A6E8A4F4-0E29-4E78-A9B4-155BEBE10012}
@@ -11,7 +11,7 @@ DefaultDirName={autopf}\Bebel Equipe Do Mais Novo 155
 DefaultGroupName=Bebel Equipe Do Mais Novo 155
 DisableProgramGroupPage=yes
 OutputDir=dist
-OutputBaseFilename=Bebel-155_Setup_V5_1_7
+OutputBaseFilename=Bebel-155_Setup_V5_1_8
 SetupIconFile=Assets\bebel155.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
