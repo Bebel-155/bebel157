@@ -74,7 +74,7 @@ del /q "CRIAR_SETUP_V5_1_*.bat" >nul 2>&1
 del /q "INICIAR_V5_1_*.bat" >nul 2>&1
 del /q "LEIA-ME_V5_1_*.txt" >nul 2>&1
 
-echo [3/5] Copiando a v5.1.8 para o clone temporario...
+echo [3/5] Copiando a v5.1.9 para o clone temporario...
 robocopy "%SOURCE%" "%CLONE%" /E /R:2 /W:1 /COPY:DAT /DCOPY:DAT /NFL /NDL /NJH /NJS /NP ^
  /XD "%SOURCE%\.git" "%SOURCE%\build" "%SOURCE%\dist" "%SOURCE%\.vs" "%SOURCE%\bin" "%SOURCE%\obj" ^
  /XF "device-images.json" "compilacao.log"
@@ -102,7 +102,7 @@ git diff --cached --quiet
 if not errorlevel 1 (
   echo Nenhuma alteracao nova para publicar.
 ) else (
-  git commit -m "Bebel 155 v5.1.8 - corrigir workflow e publicador"
+  git commit -m "Bebel 155 v5.1.9 - corrigir Setup e encerramento"
   if errorlevel 1 (
     echo [ERRO] Falha ao criar commit.
     echo Pasta temporaria: %TMPROOT%

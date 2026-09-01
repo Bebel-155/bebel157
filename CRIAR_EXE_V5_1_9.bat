@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title Bebel 155 v5.1.8 - Compilar EXE
+title Bebel 155 v5.1.9 - Compilar EXE
 
 set "OUTDIR=%~dp0build"
-set "EXE=%OUTDIR%\Bebel-155_V5_1_8.exe"
+set "EXE=%OUTDIR%\Bebel-155_V5_1_9.exe"
 set "LOG=%OUTDIR%\compilacao.log"
 
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
@@ -27,7 +27,7 @@ if exist "%CSC%" (
    /reference:System.Management.dll ^
    /reference:System.IO.Compression.dll ^
    /reference:System.IO.Compression.FileSystem.dll ^
-   "%~dp0Bebel155_v5_1_8.cs" >"%LOG%" 2>&1
+   "%~dp0Bebel155_v5_1_9.cs" >"%LOG%" 2>&1
 )
 
 if exist "%EXE%" (
@@ -37,9 +37,8 @@ if exist "%EXE%" (
   exit /b 0
 )
 
-echo Compilador antigo nao criou o EXE. Usando SDK .NET moderno...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0COMPILAR_COM_DOTNET_MODERNO.ps1" ^
- -SourceDir "%~dp0" -OutputExe "%EXE%" -LogFile "%LOG%" -SourceFile "Bebel155_v5_1_8.cs"
+ -SourceDir "%~dp0" -OutputExe "%EXE%" -LogFile "%LOG%" -SourceFile "Bebel155_v5_1_9.cs"
 
 if exist "%EXE%" (
   echo [OK] EXE criado:

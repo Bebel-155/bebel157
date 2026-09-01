@@ -35,6 +35,95 @@ namespace BebelEquipe155
         }
     }
 
+    static class LocationService
+    {
+        static readonly object Sync = new object();
+        static string cachedCity = null;
+
+        public static string CachedCity
+        {
+            get
+            {
+                lock (Sync)
+                    return string.IsNullOrWhiteSpace(cachedCity) ? "Local" : cachedCity;
+            }
+        }
+
+        static string JsonValue(string json, string key)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return "";
+            try
+            {
+                Match m = Regex.Match(
+                    json,
+                    "\"" + Regex.Escape(key) + "\"\\s*:\\s*\"((?:\\\\.|[^\"])*)\"",
+                    RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                return m.Success ? Regex.Unescape(m.Groups[1].Value).Trim() : "";
+            }
+            catch { return ""; }
+        }
+
+        static string DownloadJson(string url)
+        {
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+            request.Method = "GET";
+            request.Timeout = 4500;
+            request.ReadWriteTimeout = 4500;
+            request.UserAgent = "BebelEquipe155-v5.1.9";
+            request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+
+            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            using (Stream stream = response.GetResponseStream())
+            using (StreamReader reader = new StreamReader(stream))
+                return reader.ReadToEnd();
+        }
+
+        public static string ResolveCity()
+        {
+            lock (Sync)
+            {
+                if (!string.IsNullOrWhiteSpace(cachedCity))
+                    return cachedCity;
+            }
+
+            string city = "";
+
+            // IP geolocation is approximate; a VPN/proxy can change the detected city.
+            try
+            {
+                string json = DownloadJson("https://ipapi.co/json/");
+                city = JsonValue(json, "city");
+            }
+            catch { }
+
+            if (string.IsNullOrWhiteSpace(city))
+            {
+                try
+                {
+                    string json = DownloadJson("https://ipwho.is/");
+                    city = JsonValue(json, "city");
+                }
+                catch { }
+            }
+
+            if (string.IsNullOrWhiteSpace(city))
+                city = "Local";
+
+            lock (Sync)
+            {
+                cachedCity = city;
+                return cachedCity;
+            }
+        }
+
+        public static string ClockText(string city)
+        {
+            string label = string.IsNullOrWhiteSpace(city) ? "Local" : city.Trim();
+            DateTime now = DateTime.Now;
+            return label + "  •  " + now.ToString("dd/MM/yyyy") + "  •  " + now.ToString("HH:mm:ss");
+        }
+    }
+
     public class SplashForm : Form
     {
         System.Windows.Forms.Timer timer;
@@ -122,8 +211,8 @@ namespace BebelEquipe155
         const string PasswordSha256 = "bc3df08d35d963ca80a24d71262eb057a13627cf7a2b12984f7be440a2721782";
         TextBox userBox, passwordBox;
         Label errorLabel;
-        Label brasiliaClockLabel;
-        System.Windows.Forms.Timer brasiliaClockTimer;
+        Label localClockLabel;
+        System.Windows.Forms.Timer localClockTimer;
         int attempts = 0;
 
         public LoginForm()
@@ -139,30 +228,31 @@ namespace BebelEquipe155
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
             // Relógio compacto de Brasília: fica na borda superior e não altera o layout.
-            brasiliaClockLabel = new Label();
-            brasiliaClockLabel.Text = "Brasília, Brasil • carregando...";
-            brasiliaClockLabel.ForeColor = Color.FromArgb(148, 163, 184);
-            brasiliaClockLabel.Font = new Font("Segoe UI", 8.2F);
-            brasiliaClockLabel.TextAlign = ContentAlignment.MiddleRight;
-            brasiliaClockLabel.Size = new Size(452, 18);
-            brasiliaClockLabel.Location = new Point(18, 4);
-            brasiliaClockLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            Controls.Add(brasiliaClockLabel);
+            localClockLabel = new Label();
+            localClockLabel.Text = "Localizando cidade...";
+            localClockLabel.ForeColor = Color.FromArgb(148, 163, 184);
+            localClockLabel.Font = new Font("Segoe UI", 8.2F);
+            localClockLabel.TextAlign = ContentAlignment.MiddleRight;
+            localClockLabel.Size = new Size(452, 18);
+            localClockLabel.Location = new Point(18, 4);
+            localClockLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            Controls.Add(localClockLabel);
 
-            UpdateBrasiliaClock();
-            brasiliaClockTimer = new System.Windows.Forms.Timer();
-            brasiliaClockTimer.Interval = 1000;
-            brasiliaClockTimer.Tick += delegate { UpdateBrasiliaClock(); };
-            brasiliaClockTimer.Start();
+            UpdateLocalClock();
+            ResolveLoginCityAsync();
+            localClockTimer = new System.Windows.Forms.Timer();
+            localClockTimer.Interval = 1000;
+            localClockTimer.Tick += delegate { UpdateLocalClock(); };
+            localClockTimer.Start();
 
             FormClosed += delegate
             {
                 try
                 {
-                    if (brasiliaClockTimer != null)
+                    if (localClockTimer != null)
                     {
-                        brasiliaClockTimer.Stop();
-                        brasiliaClockTimer.Dispose();
+                        localClockTimer.Stop();
+                        localClockTimer.Dispose();
                     }
                 }
                 catch { }
@@ -233,31 +323,30 @@ namespace BebelEquipe155
             AcceptButton = login;
         }
 
-        DateTime GetBrasiliaTime()
+        void ResolveLoginCityAsync()
         {
-            try
+            ThreadPool.QueueUserWorkItem(delegate
             {
-                // ID oficial do Windows para o horário de Brasília/São Paulo.
-                TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
-                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
-            }
-            catch
-            {
-                // Fallback atual de Brasília caso o banco de fusos do Windows esteja indisponível.
-                return DateTime.UtcNow.AddHours(-3);
-            }
+                string city = LocationService.ResolveCity();
+                try
+                {
+                    if (!IsDisposed && IsHandleCreated)
+                    {
+                        BeginInvoke((MethodInvoker)delegate
+                        {
+                            localClockLabel.Text = LocationService.ClockText(city);
+                        });
+                    }
+                }
+                catch { }
+            });
         }
 
-        void UpdateBrasiliaClock()
+        void UpdateLocalClock()
         {
             try
             {
-                DateTime now = GetBrasiliaTime();
-                brasiliaClockLabel.Text =
-                    "Brasília, Brasil  •  " +
-                    now.ToString("dd/MM/yyyy") +
-                    "  •  " +
-                    now.ToString("HH:mm:ss");
+                localClockLabel.Text = LocationService.ClockText(LocationService.CachedCity);
             }
             catch { }
         }
@@ -331,7 +420,7 @@ namespace BebelEquipe155
     public class MainForm : Form
     {
         readonly string AppName = "Bebel Equipe Do Mais Novo 155";
-        readonly string AppVersion = "5.1.8";
+        readonly string AppVersion = "5.1.9";
 
         string BaseDir, LogDir, ReportDir, BackupDir, ToolsDir, DownloadDir, ScreenshotDir, ExportDir, HistoryDir, PlatformToolsDir, UpdateDir, SettingsFile, LogFile;
         UpdateManifest pendingManifest;
@@ -347,6 +436,14 @@ namespace BebelEquipe155
         Dictionary<string, Button> navButtons = new Dictionary<string, Button>();
 
         System.Windows.Forms.Timer autoTimer;
+        System.Windows.Forms.Timer sidebarClockTimer;
+        Label sidebarClockLabel;
+        string operatingCity = "Local";
+
+        readonly object ownedProcessLock = new object();
+        readonly HashSet<int> ownedProcessIds = new HashSet<int>();
+        bool cleanupStarted = false;
+        bool isShuttingDown = false;
 
         readonly Color CBackground = Color.FromArgb(12, 16, 22);
         readonly Color CCard = Color.FromArgb(20, 26, 35);
@@ -414,11 +511,18 @@ namespace BebelEquipe155
             BuildUI();
             ShowPage("Painel");
 
+            FormClosing += delegate(object sender, FormClosingEventArgs e)
+            {
+                isShuttingDown = true;
+                CleanupOwnedProcesses();
+            };
+
             Shown += delegate
             {
                 Log("Aplicativo iniciado.");
                 RefreshDashboardAsync();
                 ThreadPool.QueueUserWorkItem(delegate { AutoUpdateStartup(); });
+                ResolveOperatingCityAsync();
             };
 
             autoTimer = new System.Windows.Forms.Timer();
@@ -510,6 +614,18 @@ namespace BebelEquipe155
             headerDeviceLabel.Location = new Point(29, 58);
             header.Controls.Add(headerDeviceLabel);
 
+            Button exitButton = new Button();
+            exitButton.Text = "⏻  Encerrar";
+            exitButton.FlatStyle = FlatStyle.Flat;
+            exitButton.FlatAppearance.BorderColor = Color.FromArgb(120, 55, 62);
+            exitButton.BackColor = Color.FromArgb(61, 29, 35);
+            exitButton.ForeColor = Color.FromArgb(255, 220, 224);
+            exitButton.Size = new Size(122, 38);
+            exitButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            exitButton.Location = new Point(header.Width - 148, 30);
+            exitButton.Click += delegate { ShutdownApplication(); };
+            header.Controls.Add(exitButton);
+
             Button refresh = new Button();
             refresh.Text = "↻  Atualizar";
             refresh.FlatStyle = FlatStyle.Flat;
@@ -518,10 +634,15 @@ namespace BebelEquipe155
             refresh.ForeColor = CText;
             refresh.Size = new Size(122, 38);
             refresh.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            refresh.Location = new Point(header.Width - 148, 30);
-            header.Resize += delegate { refresh.Left = Math.Max(20, header.ClientSize.Width - refresh.Width - 24); };
+            refresh.Location = new Point(header.Width - 280, 30);
             refresh.Click += delegate { RefreshDashboardAsync(); };
             header.Controls.Add(refresh);
+
+            header.Resize += delegate
+            {
+                exitButton.Left = Math.Max(150, header.ClientSize.Width - exitButton.Width - 24);
+                refresh.Left = Math.Max(20, exitButton.Left - refresh.Width - 10);
+            };
         }
 
         void BuildSidebar()
@@ -532,8 +653,27 @@ namespace BebelEquipe155
             sidebar.AutoScroll = true;
             root.Controls.Add(sidebar, 0, 1);
 
+            sidebarClockLabel = new Label();
+            sidebarClockLabel.Text = LocationService.ClockText(LocationService.CachedCity);
+            sidebarClockLabel.ForeColor = Color.FromArgb(164, 177, 197);
+            sidebarClockLabel.Font = new Font("Segoe UI", 8.2F);
+            sidebarClockLabel.AutoEllipsis = true;
+            sidebarClockLabel.Size = new Size(216, 22);
+            sidebarClockLabel.Location = new Point(14, 10);
+            sidebarClockLabel.TextAlign = ContentAlignment.MiddleLeft;
+            sidebar.Controls.Add(sidebarClockLabel);
+
+            sidebarClockTimer = new System.Windows.Forms.Timer();
+            sidebarClockTimer.Interval = 1000;
+            sidebarClockTimer.Tick += delegate
+            {
+                if (sidebarClockLabel != null)
+                    sidebarClockLabel.Text = LocationService.ClockText(operatingCity);
+            };
+            sidebarClockTimer.Start();
+
             string[] names = { "Painel", "Informações", "Android", "iPhone / iOS", "Diagnóstico", "Recuperação", "Backup", "Ferramentas", "Atualizações", "Relatórios" };
-            int top = 18;
+            int top = 42;
             foreach (string n in names)
             {
                 Button b = new Button();
@@ -556,12 +696,159 @@ namespace BebelEquipe155
             }
 
             Label footer = new Label();
-            footer.Text = "v5.1.8 • USB / Android / iOS";
+            footer.Text = "v5.1.9 • USB / Android / iOS";
             footer.ForeColor = Color.FromArgb(145, 155, 172);
             footer.Font = FSmall;
             footer.AutoSize = true;
             footer.Location = new Point(18, top + 20);
             sidebar.Controls.Add(footer);
+        }
+
+        void ResolveOperatingCityAsync()
+        {
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                string city = LocationService.ResolveCity();
+                operatingCity = city;
+
+                try
+                {
+                    if (!isShuttingDown && !IsDisposed && IsHandleCreated)
+                    {
+                        BeginInvoke((MethodInvoker)delegate
+                        {
+                            if (sidebarClockLabel != null)
+                                sidebarClockLabel.Text = LocationService.ClockText(operatingCity);
+                        });
+                    }
+                }
+                catch { }
+            });
+        }
+
+        void RegisterOwnedProcess(Process p)
+        {
+            try
+            {
+                if (p == null) return;
+                lock (ownedProcessLock) ownedProcessIds.Add(p.Id);
+            }
+            catch { }
+        }
+
+        void UnregisterOwnedProcess(Process p)
+        {
+            try
+            {
+                if (p == null) return;
+                lock (ownedProcessLock) ownedProcessIds.Remove(p.Id);
+            }
+            catch { }
+        }
+
+        void StopAdbServerOnExit()
+        {
+            try
+            {
+                string adb = ToolPath("adb.exe");
+                if (string.IsNullOrWhiteSpace(adb) || !File.Exists(adb)) return;
+
+                ProcessStartInfo psi = new ProcessStartInfo();
+                psi.FileName = adb;
+                psi.Arguments = "kill-server";
+                psi.UseShellExecute = false;
+                psi.CreateNoWindow = true;
+
+                using (Process p = Process.Start(psi))
+                {
+                    if (p != null && !p.WaitForExit(3000))
+                    {
+                        try { p.Kill(); } catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        bool IsBebelToolProcess(Process p)
+        {
+            try
+            {
+                if (p == null || p.HasExited || p.MainModule == null) return false;
+                string file = p.MainModule.FileName ?? "";
+                if (string.IsNullOrWhiteSpace(file)) return false;
+
+                return file.StartsWith(ToolsDir, StringComparison.OrdinalIgnoreCase) ||
+                       file.StartsWith(PlatformToolsDir, StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
+
+        void CleanupOwnedProcesses()
+        {
+            if (cleanupStarted) return;
+            cleanupStarted = true;
+
+            try { if (autoTimer != null) autoTimer.Stop(); } catch { }
+            try { if (sidebarClockTimer != null) sidebarClockTimer.Stop(); } catch { }
+
+            StopAdbServerOnExit();
+
+            List<int> processIds;
+            lock (ownedProcessLock)
+                processIds = ownedProcessIds.ToList();
+
+            foreach (int pid in processIds)
+            {
+                try
+                {
+                    Process p = Process.GetProcessById(pid);
+                    if (!p.HasExited)
+                    {
+                        p.Kill();
+                        p.WaitForExit(1500);
+                    }
+                }
+                catch { }
+            }
+
+            // Fallback only for adb/fastboot executables located inside the Bebel tools directory.
+            foreach (string processName in new[] { "adb", "fastboot" })
+            {
+                try
+                {
+                    foreach (Process p in Process.GetProcessesByName(processName))
+                    {
+                        try
+                        {
+                            if (IsBebelToolProcess(p) && !p.HasExited)
+                            {
+                                p.Kill();
+                                p.WaitForExit(1200);
+                            }
+                        }
+                        catch { }
+                        finally { try { p.Dispose(); } catch { } }
+                    }
+                }
+                catch { }
+            }
+
+            try { Log("Encerramento: timers e processos auxiliares do Bebel 155 finalizados."); } catch { }
+        }
+
+        void ShutdownApplication()
+        {
+            DialogResult answer = MessageBox.Show(
+                "Encerrar completamente o Bebel 155 e finalizar os processos auxiliares iniciados pelo programa?",
+                AppName,
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (answer != DialogResult.Yes) return;
+
+            isShuttingDown = true;
+            Close();
         }
 
         void BuildStatusBar()
@@ -1212,6 +1499,7 @@ namespace BebelEquipe155
                     Log("Erro em " + page + ": " + ex);
                 }
 
+                if (isShuttingDown || IsDisposed || !IsHandleCreated) return;
                 BeginInvoke((MethodInvoker)delegate
                 {
                     if (outputs.ContainsKey(page))
@@ -1232,6 +1520,7 @@ namespace BebelEquipe155
                 DashboardState state = BuildDashboardState();
                 string diag = GetDriverDiagnosis();
 
+                if (isShuttingDown || IsDisposed || !IsHandleCreated) return;
                 BeginInvoke((MethodInvoker)delegate
                 {
                     ApplyDashboardState(state);
@@ -1427,6 +1716,7 @@ namespace BebelEquipe155
         string Run(string file, string args, int timeoutSec)
         {
             if (string.IsNullOrEmpty(file)) return "Executável não encontrado.";
+            Process p = null;
             try
             {
                 ProcessStartInfo psi = new ProcessStartInfo();
@@ -1437,20 +1727,27 @@ namespace BebelEquipe155
                 psi.RedirectStandardOutput = true;
                 psi.RedirectStandardError = true;
 
-                using (Process p = Process.Start(psi))
-                {
-                    string stdout = p.StandardOutput.ReadToEnd();
-                    string stderr = p.StandardError.ReadToEnd();
+                p = Process.Start(psi);
+                if (p == null) return "Não foi possível iniciar o processo.";
 
-                    if (!p.WaitForExit(timeoutSec * 1000))
-                    {
-                        try { p.Kill(); } catch { }
-                        return "TIMEOUT após " + timeoutSec + " segundos.";
-                    }
-                    return (stdout + Environment.NewLine + stderr).Trim();
+                RegisterOwnedProcess(p);
+
+                string stdout = p.StandardOutput.ReadToEnd();
+                string stderr = p.StandardError.ReadToEnd();
+
+                if (!p.WaitForExit(timeoutSec * 1000))
+                {
+                    try { p.Kill(); } catch { }
+                    return "TIMEOUT após " + timeoutSec + " segundos.";
                 }
+                return (stdout + Environment.NewLine + stderr).Trim();
             }
             catch (Exception ex) { return "Erro: " + ex.Message; }
+            finally
+            {
+                UnregisterOwnedProcess(p);
+                try { if (p != null) p.Dispose(); } catch { }
+            }
         }
 
         void StartSimple(string file, string args)
@@ -2071,7 +2368,7 @@ namespace BebelEquipe155
             {
                 string info=ToolPath("ideviceinfo.exe"); string pt=Run(info,"-k ProductType",10).Trim(); string hw=Run(info,"-k HardwareModel",10).Trim(); string mn=Run(info,"-k ModelNumber",10).Trim();
                 string commercial=ResolveAppleMarketingName(pt), expectedBoard="", expectedIdentifier="";
-                try { using(WebClient wc=new WebClient()) { wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.8"); string j=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); expectedBoard=JsonStringValue(j,"boardconfig"); if(!string.IsNullOrWhiteSpace(mn)){ try { string mj=wc.DownloadString("https://ipsw.info/api/v1/model/"+Uri.EscapeDataString(mn)); expectedIdentifier=JsonStringValue(mj,"identifier"); } catch{} } } } catch{}
+                try { using(WebClient wc=new WebClient()) { wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.9"); string j=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); expectedBoard=JsonStringValue(j,"boardconfig"); if(!string.IsNullOrWhiteSpace(mn)){ try { string mj=wc.DownloadString("https://ipsw.info/api/v1/model/"+Uri.EscapeDataString(mn)); expectedIdentifier=JsonStringValue(mj,"identifier"); } catch{} } } } catch{}
                 bool boardOk=string.IsNullOrWhiteSpace(expectedBoard)||string.IsNullOrWhiteSpace(hw)||NormalizeIdentity(expectedBoard)==NormalizeIdentity(hw);
                 bool skuOk=string.IsNullOrWhiteSpace(expectedIdentifier)||string.Equals(expectedIdentifier,pt,StringComparison.OrdinalIgnoreCase);
                 StringBuilder sb=new StringBuilder(); sb.AppendLine("COERÊNCIA DE IDENTIDADE - IPHONE / IOS"); sb.AppendLine("======================================"); sb.AppendLine("Modelo comercial: "+commercial); sb.AppendLine("ProductType: "+pt); sb.AppendLine("HardwareModel: "+hw); sb.AppendLine("ModelNumber: "+mn); sb.AppendLine("ProductType × board config: "+(boardOk?"COERENTE":"INCONSISTENTE")); if(!string.IsNullOrWhiteSpace(expectedBoard)) sb.AppendLine("Board esperado: "+expectedBoard); sb.AppendLine("ModelNumber × ProductType: "+(skuOk?"COERENTE / SEM CONFLITO":"INCONSISTENTE")); if(!string.IsNullOrWhiteSpace(expectedIdentifier)) sb.AppendLine("Identificador esperado pelo SKU: "+expectedIdentifier); sb.AppendLine(); sb.AppendLine((boardOk&&skuOk)?"RESULTADO: nenhum conflito conhecido.":"RESULTADO: identificadores divergentes; valores reais preservados."); return sb.ToString();
@@ -2097,12 +2394,12 @@ namespace BebelEquipe155
         string GithubRawUrl(string path){ string repo=ReadSetting("github_repo","Bebel-155/bebel157").Trim(); return "https://raw.githubusercontent.com/"+repo+"/main/"+path.TrimStart('/'); }
         string ResolveAndroidRenderUrl(string model,string codename)
         {
-            try { using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.8"); string json=wc.DownloadString(GithubRawUrl("device-images.json")); foreach(Match obj in Regex.Matches(json,@"\{[^{}]*\}",RegexOptions.Singleline)){ string match=JsonStringValue(obj.Value,"match"), c=JsonStringValue(obj.Value,"codename"), image=JsonStringValue(obj.Value,"image"); bool mm=!string.IsNullOrWhiteSpace(match)&&(NormalizeIdentity(model).Contains(NormalizeIdentity(match))||NormalizeIdentity(match).Contains(NormalizeIdentity(model))); bool cm=!string.IsNullOrWhiteSpace(c)&&NormalizeIdentity(c)==NormalizeIdentity(codename); if((mm||cm)&&Uri.IsWellFormedUriString(image,UriKind.Absolute)) return image; } } } catch{} return "";
+            try { using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.9"); string json=wc.DownloadString(GithubRawUrl("device-images.json")); foreach(Match obj in Regex.Matches(json,@"\{[^{}]*\}",RegexOptions.Singleline)){ string match=JsonStringValue(obj.Value,"match"), c=JsonStringValue(obj.Value,"codename"), image=JsonStringValue(obj.Value,"image"); bool mm=!string.IsNullOrWhiteSpace(match)&&(NormalizeIdentity(model).Contains(NormalizeIdentity(match))||NormalizeIdentity(match).Contains(NormalizeIdentity(model))); bool cm=!string.IsNullOrWhiteSpace(c)&&NormalizeIdentity(c)==NormalizeIdentity(codename); if((mm||cm)&&Uri.IsWellFormedUriString(image,UriKind.Absolute)) return image; } } } catch{} return "";
         }
         DeviceRenderData GetDeviceRenderData()
         {
             DeviceRenderData d=new DeviceRenderData(); if(AdbState()=="ADB CONECTADO"){ string adb=ToolPath("adb.exe"), model=GetExactAndroidModel(adb), codename=AndroidCodename(adb); d.Key="android|"+model+"|"+codename; d.Caption=model; d.Url=ResolveAndroidRenderUrl(model,codename); d.Source=string.IsNullOrWhiteSpace(d.Url)?"Imagem não cadastrada":"Render do repositório"; return d; }
-            if(IosState()=="IPHONE AUTORIZADO"){ string info=ToolPath("ideviceinfo.exe"), pt=Run(info,"-k ProductType",10).Trim(); d.Key="apple|"+pt; d.Caption=ResolveAppleMarketingName(pt); try{ using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.8"); string json=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); d.Url=JsonStringValue(json,"apple_image"); if(string.IsNullOrWhiteSpace(d.Url)) d.Url=JsonStringValue(json,"imageurl"); } } catch{} d.Source=string.IsNullOrWhiteSpace(d.Url)?"Imagem indisponível":"Render público do modelo"; return d; }
+            if(IosState()=="IPHONE AUTORIZADO"){ string info=ToolPath("ideviceinfo.exe"), pt=Run(info,"-k ProductType",10).Trim(); d.Key="apple|"+pt; d.Caption=ResolveAppleMarketingName(pt); try{ using(WebClient wc=new WebClient()){ wc.Headers.Add("User-Agent","BebelEquipe155-v5.1.9"); string json=wc.DownloadString("https://ipsw.info/api/v1/device/"+Uri.EscapeDataString(pt)); d.Url=JsonStringValue(json,"apple_image"); if(string.IsNullOrWhiteSpace(d.Url)) d.Url=JsonStringValue(json,"imageurl"); } } catch{} d.Source=string.IsNullOrWhiteSpace(d.Url)?"Imagem indisponível":"Render público do modelo"; return d; }
             d.Key="none"; d.Caption="B155"; d.Source="Autorize o aparelho para identificar"; return d;
         }
         void RefreshDeviceRenderAsync()
@@ -2843,7 +3140,7 @@ namespace BebelEquipe155
                 string api = "https://api.github.com/repos/" + repo;
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.8");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.9");
                     wc.Headers.Add("Accept", "application/vnd.github+json");
                     wc.DownloadString(api);
                     return true;
@@ -2876,7 +3173,7 @@ namespace BebelEquipe155
             {
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.8");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.9");
                     wc.Headers.Add("Accept", "application/vnd.github+json");
                     json = wc.DownloadString(api);
                 }
@@ -3323,7 +3620,7 @@ namespace BebelEquipe155
 
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.8");
+                    wc.Headers.Add("User-Agent", "BebelEquipe155-v5.1.9");
                     wc.DownloadFile(url, zip);
                 }
 

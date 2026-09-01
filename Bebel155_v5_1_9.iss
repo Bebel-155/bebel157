@@ -1,6 +1,6 @@
 ﻿#define MyAppName "Bebel Equipe Do Mais Novo 155"
-#define MyAppVersion "5.1.8"
-#define MyAppExeName "Bebel-155_V5_1_8.exe"
+#define MyAppVersion "5.1.9"
+#define MyAppExeName "Bebel-155_V5_1_9.exe"
 
 [Setup]
 AppId={{A6E8A4F4-0E29-4E78-A9B4-155BEBE10012}
@@ -11,7 +11,7 @@ DefaultDirName={autopf}\Bebel Equipe Do Mais Novo 155
 DefaultGroupName=Bebel Equipe Do Mais Novo 155
 DisableProgramGroupPage=yes
 OutputDir=dist
-OutputBaseFilename=Bebel-155_Setup_V5_1_8
+OutputBaseFilename=Bebel-155_Setup_V5_1_9
 SetupIconFile=Assets\bebel155.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
@@ -41,7 +41,7 @@ Source: "Atualizacao\manifest.example.json"; DestDir: "{app}\Atualizacao"; Flags
 [Icons]
 Name: "{autodesktop}\Bebel Equipe Do Mais Novo 155"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
 Name: "{group}\Bebel Equipe Do Mais Novo 155"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
-Name: "{group}\Configurar dependencias"; Filename: "{app}\Ferramentas\CONFIGURAR_DEPENDENCIAS_V5_1.bat"; WorkingDir: "{app}\Ferramentas"; Flags: skipifsourcedoesntexist
+Name: "{group}\Configurar dependencias"; Filename: "{app}\Ferramentas\CONFIGURAR_DEPENDENCIAS_V5_1.bat"; WorkingDir: "{app}\Ferramentas"
 Name: "{group}\Reparar WinGet - App Installer"; Filename: "{app}\Ferramentas\REPARAR_WINGET_APP_INSTALLER.bat"; WorkingDir: "{app}\Ferramentas"
 Name: "{group}\Desinstalar Bebel Equipe Do Mais Novo 155"; Filename: "{uninstallexe}"
 

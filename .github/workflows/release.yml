@@ -28,7 +28,7 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "file_version=$fileVersion" >> $env:GITHUB_OUTPUT
 
-          $src = "Bebel155_v5_1_8.cs"
+          $src = "Bebel155_v5_1_9.cs"
           if (!(Test-Path $src)) { throw "Fonte nao encontrada: $src" }
 
           $text = Get-Content $src -Raw
@@ -36,7 +36,7 @@ jobs:
           $text = $text -replace 'footer.Text = "v[^"]+ • USB / Android / iOS";', ('footer.Text = "v' + $version + ' • USB / Android / iOS";')
           Set-Content -Path $src -Value $text -Encoding UTF8
 
-          $iss = "Bebel155_v5_1_8.iss"
+          $iss = "Bebel155_v5_1_9.iss"
           if (!(Test-Path $iss)) { throw "Arquivo Inno Setup nao encontrado: $iss" }
 
           $i = Get-Content $iss -Raw
@@ -49,8 +49,8 @@ jobs:
         shell: pwsh
         run: |
           $required = @(
-            "Bebel155_v5_1_8.cs",
-            "Bebel155_v5_1_8.iss",
+            "Bebel155_v5_1_9.cs",
+            "Bebel155_v5_1_9.iss",
             "Assets\bebel155.ico",
             "Assets\logo_b155.png",
             "Assets\banner_b155.png"
@@ -73,7 +73,7 @@ jobs:
 
           # Resolve todos os caminhos ANTES de montar os argumentos.
           # Isso evita o CS1566 causado pelas aspas dentro de /resource:.
-          $source = (Resolve-Path "Bebel155_v5_1_8.cs").Path
+          $source = (Resolve-Path "Bebel155_v5_1_9.cs").Path
           $icon = (Resolve-Path "Assets\bebel155.ico").Path
           $logo = (Resolve-Path "Assets\logo_b155.png").Path
           $banner = (Resolve-Path "Assets\banner_b155.png").Path
@@ -144,6 +144,30 @@ jobs:
         shell: pwsh
         run: choco install innosetup -y --no-progress
 
+
+      - name: Validar Inno Setup
+        shell: pwsh
+        run: |
+          $iss = "Bebel155_v5_1_9.iss"
+          if (!(Test-Path $iss)) { throw "Arquivo Inno Setup ausente: $iss" }
+
+          $text = Get-Content $iss -Raw
+          $match = [regex]::Match(
+            $text,
+            '(?ms)^\[Icons\]\s*(.*?)(?=^\[|\z)'
+          )
+
+          if (!$match.Success) {
+            throw "Secao [Icons] nao encontrada em $iss."
+          }
+
+          $icons = $match.Groups[1].Value
+          if ($icons -match 'skipifsourcedoesntexist') {
+            throw 'Flag invalido skipifsourcedoesntexist encontrado na secao [Icons].'
+          }
+
+          Write-Host "Secao [Icons] validada."
+
       - name: Compilar Setup
         shell: pwsh
         run: |
@@ -155,7 +179,7 @@ jobs:
             throw "ISCC.exe nao encontrado."
           }
 
-          & $iscc "Bebel155_v5_1_8.iss"
+          & $iscc "Bebel155_v5_1_9.iss"
 
           if ($LASTEXITCODE -ne 0) {
             throw "Falha ao compilar Setup. Codigo: $LASTEXITCODE"
