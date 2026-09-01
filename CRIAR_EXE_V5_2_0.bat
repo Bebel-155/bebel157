@@ -57,7 +57,7 @@ if exist "%EXE%" (
 
 echo Compilador .NET Framework antigo nao criou o EXE. Tentando Roslyn moderno...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0COMPILAR_COM_DOTNET_MODERNO.ps1" ^
- -SourceDir "%~dp0" -OutputExe "%EXE%" -LogFile "%LOG%" -SourceFile "Bebel155_v5_2_0.cs"
+ -SourceDir "%~dp0." -OutputExe "%EXE%" -LogFile "%LOG%" -SourceFile "Bebel155_v5_2_0.cs"
 
 if exist "%EXE%" (
   echo [OK] EXE criado:

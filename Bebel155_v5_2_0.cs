@@ -1623,12 +1623,18 @@ namespace BebelEquipe155
                             currentAppleSnapshot = null;
                             currentMarketQuote = null;
                             headerDeviceLabel.Text = "Aguardando dispositivo • v" + AppVersion;
-                            infoType.Text = "Aguardando"; infoType.ForeColor = CMuted;
-                            infoOs.Text = "—"; infoOs.ForeColor = CMuted;
-                            infoDriver.Text = "—"; infoDriver.ForeColor = CMuted;
-                            infoRam.Text = "—"; infoRam.ForeColor = CMuted;
-                            infoStorage.Text = "—"; infoStorage.ForeColor = CMuted;
-                            infoBattery.Text = "—"; infoBattery.ForeColor = CMuted;
+                            if (infoSystemValue != null) { infoSystemValue.Text = "Aguardando"; infoSystemValue.ForeColor = CMuted; }
+                            if (infoRamValue != null) { infoRamValue.Text = "—"; infoRamValue.ForeColor = CMuted; }
+                            if (infoStorageValue != null) { infoStorageValue.Text = "—"; infoStorageValue.ForeColor = CMuted; }
+                            if (infoBatteryValue != null) { infoBatteryValue.Text = "—"; infoBatteryValue.ForeColor = CMuted; }
+                            if (infoResolutionValue != null) { infoResolutionValue.Text = "—"; infoResolutionValue.ForeColor = CMuted; }
+                            if (deviceNameValue != null) { deviceNameValue.Text = "Nenhum dispositivo"; deviceNameValue.ForeColor = CMuted; }
+                            if (deviceModeValue != null) { deviceModeValue.Text = "—"; deviceModeValue.ForeColor = CMuted; }
+                            if (deviceVendorValue != null) { deviceVendorValue.Text = "—"; deviceVendorValue.ForeColor = CMuted; }
+                            if (deviceIdValue != null) { deviceIdValue.Text = "—"; deviceIdValue.ForeColor = CMuted; }
+                            if (deviceOsValue != null) { deviceOsValue.Text = "—"; deviceOsValue.ForeColor = CMuted; }
+                            if (cardSystemValue != null) { cardSystemValue.Text = "Aguardando"; cardSystemValue.ForeColor = CMuted; }
+                            if (cardDriverValue != null) { cardDriverValue.Text = "—"; cardDriverValue.ForeColor = CMuted; }
                             statusUsb.Text = "● USB"; statusUsb.ForeColor = CMuted;
                             statusAdb.Text = "● ADB"; statusAdb.ForeColor = CMuted;
                             statusIos.Text = "● iOS"; statusIos.ForeColor = CMuted;

@@ -75,7 +75,15 @@ jobs:
 
       - name: Validar fonte
         shell: pwsh
-        run: python tests/validate-source.py
+        run: |
+          python tests/validate-source.py
+          if ($LASTEXITCODE -ne 0) { throw "Falha na validacao estrutural da fonte." }
+          python tests/test_compile_regressions.py
+          if ($LASTEXITCODE -ne 0) { throw "Falha nos testes de regressao de compilacao." }
+
+      - name: Testar publicacao de catalogos entre volumes
+        shell: pwsh
+        run: python tests/test_update_device_catalogs_cross_volume.py
 
       - name: Atualizar catalogos da Release
         shell: pwsh

@@ -1,0 +1,30 @@
+﻿BEBEL 155 v5.2.0 - HOTFIX COMPILACAO 2
+
+Erros tratados:
+1. CS0103 para infoType, infoOs, infoDriver, infoRam, infoStorage e infoBattery.
+   Esses nomes pertenciam a uma UI antiga e ficaram referenciados no fluxo
+   de desconexao de dispositivo. Foram substituidos pelos controles reais
+   da v5.2.0 e o painel agora tambem limpa os dados corretamente ao desconectar.
+
+2. COMPILAR_COM_DOTNET_MODERNO.ps1 recebendo argumentos unidos.
+   O batch passava -SourceDir "%~dp0"; como %~dp0 termina em barra invertida,
+   o powershell.exe podia interpretar incorretamente o fechamento das aspas.
+   Agora usa -SourceDir "%~dp0.", evitando o caminho terminar em barra.
+
+Protecoes adicionadas:
+- tests/test_compile_regressions.py
+- teste chamado pelo release.yml antes da geracao online de catalogos
+- teste incluido no run-all-tests.ps1
+
+Validacoes executadas neste ambiente:
+- test_compile_regressions.py: PASS
+- validate-source.py: PASS
+- verify_release_structure.py: PASS
+- test_update_device_catalogs_cross_volume.py: PASS
+- geracao/validacao de catalogos por fixtures: PASS
+- release.yml YAML: PASS
+- update-device-catalogs.yml YAML: PASS
+
+A compilacao WinForms/.NET Framework final precisa ser comprovada no
+Windows/GitHub Actions. A versao permanece 5.2.0 enquanto a Release
+v5.2.0 ainda nao tiver sido publicada com sucesso.
