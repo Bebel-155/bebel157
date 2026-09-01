@@ -43,12 +43,12 @@ try {
     if (-not (Test-Path $source)) { throw "Fonte principal ausente: $source" }
 
     $sources = @($source)
-    foreach ($folder in @("Core","Devices","Catalogs","Market")) {
+    foreach ($folder in @("Core","Devices","Catalogs","Market","Drivers")) {
         $dir = Join-Path $SourceDir $folder
         if (-not (Test-Path $dir)) { throw "Diretorio de fontes ausente: $dir" }
         $sources += Get-ChildItem -LiteralPath $dir -Filter *.cs -File | Sort-Object Name | ForEach-Object { $_.FullName }
     }
-    if ($sources.Count -lt 16) { throw "Lista de fontes incompleta: $($sources.Count)" }
+    if ($sources.Count -lt 22) { throw "Lista de fontes incompleta: $($sources.Count)" }
 
     $icon = Join-Path $SourceDir "Assets\bebel155.ico"
     $logo = Join-Path $SourceDir "Assets\logo_b155.png"

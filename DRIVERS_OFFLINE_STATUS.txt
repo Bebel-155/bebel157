@@ -1,0 +1,45 @@
+﻿BEBEL 155 v5.2.0 - STATUS DOS DRIVERS OFFLINE
+
+IMPLEMENTADO NO CODIGO
+- Diagnostico Windows por pnputil.
+- Leitura de VID/PID, fabricante, driver e Problem Code.
+- Cruzamento com estado do ADB.
+- Estados normalizados:
+  DRIVER_MISSING
+  DRIVER_INCORRECT
+  ADB_UNAUTHORIZED
+  ADB_OFFLINE
+  ADB_READY
+  USB_ONLY
+  UNKNOWN
+- Nova aba Drivers USB / ADB.
+- Botao Reexaminar dispositivo.
+- Botao Instalar driver recomendado.
+- Botao Reparar driver.
+- Botao Instalar pacote completo.
+- Botao Ver todos os drivers.
+- Botao Abrir fonte oficial.
+- Validacao SHA-256 antes de executar pacote.
+- Validacao Authenticode antes de executar pacote.
+- UAC somente por acao explicita do usuario.
+- Gate de drivers no GitHub Actions.
+- Setup preparado para Drivers\*.
+
+FABRICANTES CADASTRADOS
+Samsung, Motorola/Lenovo, Xiaomi/Redmi/POCO, OnePlus, OPPO, Realme, Vivo,
+Huawei, Honor, Sony, ASUS, Nokia/HMD, Nothing, ZTE, TCL/Alcatel, LG,
+Google e Generic.
+
+BINARIOS EMBUTIDOS NESTE PACOTE
+Nenhum instalador de terceiro esta marcado Allowed ainda.
+
+MOTIVO
+O projeto exige permissao de redistribuicao, hash e assinatura antes de
+copiar software de terceiros para o Setup. Samsung e Google possuem termos
+atuais que nao permitem simplesmente sublicenciar/transferir seus pacotes.
+Os demais permanecem Unknown ate revisao individual.
+
+RESULTADO
+O motor de diagnostico esta implementado; a inclusao fisica de cada instalador
+depende da licenca oficial daquele fabricante. O GitHub Actions rejeitara
+automaticamente um binario copiado sem estar autorizado/manifestado.

@@ -1,4 +1,4 @@
-BEBEL 155 v5.2.0 - STATUS DE IMPLEMENTACAO
+﻿BEBEL 155 v5.2.0 - STATUS DE IMPLEMENTACAO
 
 IMPLEMENTADO
 [OK] Descoberta de multiplos Android e Apple
@@ -19,18 +19,26 @@ IMPLEMENTADO
 [OK] SHA-256 obrigatorio no updater v5.2.0
 [OK] manifest.json de compatibilidade para migrar v5.1.9 pelo painel
 [OK] Publicador por clone temporario, sem force push
+[OK] Subsistema Drivers USB / ADB com diagnostico pnputil + ADB
+[OK] Estados DRIVER_MISSING / DRIVER_INCORRECT / ADB_UNAUTHORIZED / ADB_OFFLINE / ADB_READY
+[OK] Cobertura de manifesto para Samsung, Motorola, Xiaomi, OnePlus, OPPO, Realme, Vivo, Huawei, Honor, Sony, ASUS, HMD, Nothing, ZTE, TCL, LG, Google e Generic
+[OK] Validador de SHA-256/licenca/origem para pacotes offline
+[OK] Gate Authenticode no GitHub Actions
+[OK] Setup preparado para incluir somente pacotes de drivers aprovados
 
 VERIFICADO NESTE AMBIENTE
 [OK] YAML dos dois workflows valido
 [OK] hashes dos catalogos seed conferem
 [OK] gerador de catalogos passou fixtures e validacao
-[OK] validacao estrutural de 17 fontes C# de producao
+[OK] validacao estrutural de 23 fontes C# de producao
 [OK] scanner lexical de delimitadores das fontes C#
 [OK] arquivos exigidos pelos test runners existem
 [OK] Inno [Icons] sem o flag invalido anterior
 
 PENDENTE DE WINDOWS/GITHUB
 [ ] Compilar testes C# com csc.exe no runner Windows
+[ ] Validar Authenticode de cada binario de driver que vier a ser aprovado
+[ ] Adicionar somente instaladores com redistribuicao explicitamente permitida
 [ ] Compilar Bebel-155_V5_2_0.exe
 [ ] Compilar Bebel-155_Setup_V5_2_0.exe
 [ ] Publicar Release v5.2.0

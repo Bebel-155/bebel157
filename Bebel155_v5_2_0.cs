@@ -489,6 +489,11 @@ namespace BebelEquipe155
         MarketQuote currentMarketQuote;
         RichTextBox marketOutput;
 
+        string DriversDir;
+        DriverPackageManager driverPackageManager;
+        DriverService driverService;
+        RichTextBox driverOutput;
+
         public MainForm()
         {
             BaseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -507,6 +512,7 @@ namespace BebelEquipe155
             PlatformToolsDir = Path.Combine(ToolsDir, "platform-tools");
             CatalogCacheDir = Path.Combine(localData, "catalog");
             MarketCacheDir = Path.Combine(localData, "market");
+            DriversDir = Path.Combine(BaseDir, "Drivers");
 
             foreach (string d in new[] { LogDir, ReportDir, BackupDir, ToolsDir, DownloadDir, ScreenshotDir, ExportDir, HistoryDir, UpdateDir, CatalogCacheDir, MarketCacheDir })
                 Directory.CreateDirectory(d);
@@ -516,6 +522,18 @@ namespace BebelEquipe155
             MigrateLegacySettings();
             catalogManager = new CatalogManager(Path.Combine(BaseDir, "Catalogs"), CatalogCacheDir);
             catalogManager.LoadBestAvailable();
+
+            driverPackageManager = new DriverPackageManager(DriversDir);
+            try
+            {
+                string driverManifest = Path.Combine(DriversDir, "drivers-manifest.json");
+                if (File.Exists(driverManifest))
+                    driverPackageManager.LoadManifest(driverManifest);
+            }
+            catch (Exception ex)
+            {
+                Log("Falha ao carregar manifesto de drivers offline: " + ex.Message);
+            }
 
             Text = AppName;
             StartPosition = FormStartPosition.CenterScreen;
@@ -705,7 +723,7 @@ namespace BebelEquipe155
             };
             sidebarClockTimer.Start();
 
-            string[] names = { "Painel", "Informações", "Android", "iPhone / iOS", "Diagnóstico", "Recuperação", "Backup", "Ferramentas", "Atualizações", "Valor de Mercado", "Relatórios" };
+            string[] names = { "Painel", "Informações", "Android", "iPhone / iOS", "Diagnóstico", "Recuperação", "Backup", "Ferramentas", "Drivers USB / ADB", "Atualizações", "Valor de Mercado", "Relatórios" };
             int top = 42;
             foreach (string n in names)
             {
@@ -987,6 +1005,7 @@ namespace BebelEquipe155
             BuildRecoveryPage();
             BuildBackupPage();
             BuildToolsPage();
+            BuildDriversPage();
             BuildUpdatesPage();
             BuildMarketValuePage();
             BuildReportsPage();
@@ -1394,6 +1413,304 @@ namespace BebelEquipe155
             AddAction(actions, "Abrir documentos", delegate { OpenFolder(Path.GetDirectoryName(BackupDir)); });
         }
 
+
+
+        void BuildDriversPage()
+        {
+            FlowLayoutPanel actions;
+            RichTextBox output;
+            Panel p = BuildActionPage(
+                "Drivers USB / ADB",
+                "Diagnóstico offline de conectividade USB/ADB, recomendação por fabricante e instalação somente de pacotes aprovados.",
+                out actions, out output);
+
+            pages["Drivers USB / ADB"] = p;
+            outputs["Drivers USB / ADB"] = output;
+            driverOutput = output;
+            driverOutput.Text =
+                "Conecte um Android por USB e clique em Reexaminar dispositivo.\r\n\r\n" +
+                "O Bebel diferencia driver ausente, ADB não autorizado e ADB offline.\r\n" +
+                "Pacotes offline só ficam instaláveis depois de validação de licença, SHA-256 e assinatura digital.";
+
+            AddAction(actions, "Reexaminar dispositivo", delegate
+            {
+                RunBackground("Drivers USB / ADB", "Examinando USB / ADB...", RefreshDriverDiagnostics);
+            });
+
+            AddAction(actions, "Instalar driver recomendado", delegate
+            {
+                RunBackground("Drivers USB / ADB", "Instalando driver recomendado...", delegate { return InstallRecommendedDriver(false); });
+            });
+
+            AddAction(actions, "Reparar driver", delegate
+            {
+                RunBackground("Drivers USB / ADB", "Reparando driver...", delegate { return InstallRecommendedDriver(true); });
+            });
+
+            AddAction(actions, "Instalar pacote completo", delegate { ShowFullDriverPackageSelection(); });
+            AddAction(actions, "Ver todos os drivers", delegate
+            {
+                if (driverOutput != null) driverOutput.Text = GetAllDriverPackagesText();
+            });
+            AddAction(actions, "Abrir fonte oficial", delegate { OpenCurrentDriverSource(); });
+            AddAction(actions, "Abrir pasta de drivers", delegate
+            {
+                if (Directory.Exists(DriversDir)) OpenFolder(DriversDir);
+                else MessageBox.Show("A pasta Drivers ainda não existe nesta instalação.", AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
+        void EnsureDriverService()
+        {
+            if (driverPackageManager == null)
+            {
+                driverPackageManager = new DriverPackageManager(DriversDir);
+                string manifest = Path.Combine(DriversDir, "drivers-manifest.json");
+                if (File.Exists(manifest)) driverPackageManager.LoadManifest(manifest);
+            }
+
+            CommandRunner runner = new CommandRunner(RegisterOwnedProcess, UnregisterOwnedProcess);
+            UsbDriverDiscovery discovery = new UsbDriverDiscovery(runner);
+            DriverResolver resolver = new DriverResolver();
+            DriverInstaller installer = new DriverInstaller(driverPackageManager, runner);
+            driverService = new DriverService(discovery, resolver, driverPackageManager, installer, runner, ToolPath("adb.exe"));
+        }
+
+        string RefreshDriverDiagnostics()
+        {
+            try
+            {
+                EnsureDriverService();
+                string preferredSerial = "";
+                if (selectedDevice != null && selectedDevice.Platform == DevicePlatform.Android)
+                    preferredSerial = selectedDevice.TransportId ?? "";
+
+                DriverRecommendation recommendation = driverService.Diagnose(preferredSerial);
+                UsbDeviceSnapshot device = driverService.CurrentDevice;
+
+                if (device == null)
+                {
+                    return
+                        "Nenhum dispositivo USB Android compatível foi localizado pelo Windows.\r\n\r\n" +
+                        "Se o aparelho estiver conectado, teste outro cabo/porta USB e confira o Gerenciador de Dispositivos.";
+                }
+
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine("DRIVERS USB / ADB");
+                sb.AppendLine();
+                sb.AppendLine("Dispositivo USB: " + (string.IsNullOrWhiteSpace(device.FriendlyName) ? "—" : device.FriendlyName));
+                sb.AppendLine("Fabricante: " + (string.IsNullOrWhiteSpace(device.Manufacturer) ? "—" : device.Manufacturer));
+                sb.AppendLine("VID/PID: " +
+                    (string.IsNullOrWhiteSpace(device.VendorId) ? "—" : device.VendorId) + " / " +
+                    (string.IsNullOrWhiteSpace(device.ProductId) ? "—" : device.ProductId));
+                sb.AppendLine("Driver atual: " +
+                    (device.Driver == null || (string.IsNullOrWhiteSpace(device.Driver.Provider) && string.IsNullOrWhiteSpace(device.Driver.InfName))
+                        ? "ausente / não identificado"
+                        : ((device.Driver.Provider ?? "—") + " • " + (device.Driver.InfName ?? "—"))));
+                sb.AppendLine("Problem Code: " + (device.ProblemCode.HasValue ? device.ProblemCode.Value.ToString() : "0 / não informado"));
+                sb.AppendLine("ADB: " + recommendation.CurrentState.ToWireName());
+                sb.AppendLine("Ação: " + (recommendation.Action ?? "—"));
+                sb.AppendLine("Motivo: " + (recommendation.Reason ?? "—"));
+
+                if (!string.IsNullOrWhiteSpace(recommendation.PackageId))
+                {
+                    DriverPackage package = driverPackageManager.GetPackage(recommendation.PackageId);
+                    sb.AppendLine();
+                    sb.AppendLine("Driver recomendado:");
+                    sb.AppendLine(package == null ? recommendation.PackageId :
+                        package.DisplayName + " • " + (string.IsNullOrWhiteSpace(package.Version) ? "versão não informada" : package.Version));
+                }
+                else
+                {
+                    DriverPackage metadata = FindDriverMetadataForDevice(device);
+                    if (metadata != null)
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine("Pacote de fabricante conhecido: " + metadata.DisplayName);
+                        sb.AppendLine("Status offline: " + metadata.RedistributionStatus);
+                        if (metadata.RedistributionStatus != DriverRedistributionStatus.Allowed)
+                            sb.AppendLine("O instalador ainda não foi embutido porque a redistribuição/assinatura precisa ser aprovada.");
+                    }
+                }
+
+                if (recommendation.CurrentState == UsbAdbState.AdbUnauthorized)
+                    sb.AppendLine("\r\nDriver funcionando. Autorize a depuração USB na tela do aparelho.");
+                else if (recommendation.CurrentState == UsbAdbState.AdbOffline)
+                    sb.AppendLine("\r\nADB detectado como offline. Reinicie ADB e verifique cabo/porta antes de reinstalar driver.");
+
+                return sb.ToString();
+            }
+            catch (Exception ex)
+            {
+                return "Falha no diagnóstico de drivers: " + ex.Message;
+            }
+        }
+
+        DriverPackage FindDriverMetadataForDevice(UsbDeviceSnapshot device)
+        {
+            if (driverPackageManager == null || device == null) return null;
+            IEnumerable<DriverPackage> all = driverPackageManager.GetAllPackages();
+
+            DriverPackage byVid = all.FirstOrDefault(x =>
+                x.UsbVendorIds != null &&
+                !string.IsNullOrWhiteSpace(device.VendorId) &&
+                x.UsbVendorIds.Any(v => string.Equals(v, device.VendorId, StringComparison.OrdinalIgnoreCase)));
+            if (byVid != null) return byVid;
+
+            string manufacturer = (device.Manufacturer ?? "").ToLowerInvariant();
+            return all.FirstOrDefault(x =>
+                !string.IsNullOrWhiteSpace(x.Manufacturer) &&
+                (manufacturer.Contains(x.Manufacturer.ToLowerInvariant()) ||
+                 (!string.IsNullOrWhiteSpace(manufacturer) && x.Manufacturer.ToLowerInvariant().Contains(manufacturer))));
+        }
+
+        void OpenCurrentDriverSource()
+        {
+            try
+            {
+                EnsureDriverService();
+                string preferredSerial = selectedDevice != null && selectedDevice.Platform == DevicePlatform.Android
+                    ? (selectedDevice.TransportId ?? "") : "";
+                driverService.Diagnose(preferredSerial);
+                DriverPackage package = FindDriverMetadataForDevice(driverService.CurrentDevice);
+                if (package == null || string.IsNullOrWhiteSpace(package.SourceUrl))
+                {
+                    MessageBox.Show("Nenhuma fonte oficial cadastrada para o hardware detectado.", AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                OpenUrl(package.SourceUrl);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Não foi possível abrir a fonte oficial: " + ex.Message, AppName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        string InstallRecommendedDriver(bool repair)
+        {
+            try
+            {
+                EnsureDriverService();
+                string preferredSerial = selectedDevice != null && selectedDevice.Platform == DevicePlatform.Android
+                    ? (selectedDevice.TransportId ?? "") : "";
+                driverService.Diagnose(preferredSerial);
+
+                DriverInstallResult result = driverService.InstallRecommended(repair);
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine(result.Success ? "OPERAÇÃO CONCLUÍDA" : "DRIVER NÃO INSTALADO");
+                sb.AppendLine(result.Message ?? "—");
+                sb.AppendLine("Exit code: " + result.ExitCode);
+                if (result.RebootRequired) sb.AppendLine("Reinicialização do Windows necessária.");
+
+                if (result.Success)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine(RefreshDriverDiagnostics());
+                }
+                return sb.ToString();
+            }
+            catch (Exception ex)
+            {
+                return "Falha ao instalar/reparar driver: " + ex.Message;
+            }
+        }
+
+        string GetAllDriverPackagesText()
+        {
+            if (driverPackageManager == null) return "Manifesto de drivers não carregado.";
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("PACOTES DE DRIVERS CADASTRADOS");
+            sb.AppendLine();
+            sb.AppendLine("Fabricante | Pacote | Versão | Redistribuição | Offline");
+            sb.AppendLine(new string('-', 92));
+
+            foreach (DriverPackage package in driverPackageManager.GetAllPackages().OrderBy(x => x.Manufacturer).ThenBy(x => x.DisplayName))
+            {
+                bool filePresent = false;
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(package.RelativePath))
+                        filePresent = File.Exists(driverPackageManager.ResolveSafePath(package.RelativePath));
+                }
+                catch { }
+
+                sb.AppendLine(
+                    (package.Manufacturer ?? "—") + " | " +
+                    (package.DisplayName ?? package.Id) + " | " +
+                    (string.IsNullOrWhiteSpace(package.Version) ? "—" : package.Version) + " | " +
+                    package.RedistributionStatus + " | " +
+                    (filePresent ? "SIM" : "NÃO"));
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("Somente pacotes com Redistribuição=Allowed, SHA-256 válido e assinatura aprovada podem ser instalados.");
+            return sb.ToString();
+        }
+
+        void ShowFullDriverPackageSelection()
+        {
+            if (driverPackageManager == null)
+            {
+                MessageBox.Show("Manifesto de drivers não carregado.", AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            List<DriverPackage> available = driverPackageManager.GetInstallablePackages().ToList();
+            if (available.Count == 0)
+            {
+                MessageBox.Show(
+                    "Ainda não há instaladores de terceiros aprovados para redistribuição dentro deste pacote.\r\n\r\n" +
+                    "Os fabricantes já estão cadastrados no manifesto, mas os binários só serão adicionados após validação de licença, SHA-256 e assinatura.",
+                    AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            Form dialog = new Form();
+            dialog.Text = "Instalar pacote completo de drivers";
+            dialog.StartPosition = FormStartPosition.CenterParent;
+            dialog.Size = new Size(620, 500);
+            dialog.MinimizeBox = false;
+            dialog.MaximizeBox = false;
+
+            CheckedListBox list = new CheckedListBox();
+            list.Dock = DockStyle.Fill;
+            list.CheckOnClick = true;
+            foreach (DriverPackage package in available)
+                list.Items.Add(package.Manufacturer + " • " + package.DisplayName + " • " + package.Version, false);
+
+            Button install = new Button();
+            install.Text = "Instalar selecionados";
+            install.Dock = DockStyle.Bottom;
+            install.Height = 44;
+            install.DialogResult = DialogResult.OK;
+
+            dialog.Controls.Add(list);
+            dialog.Controls.Add(install);
+            dialog.AcceptButton = install;
+
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+            List<DriverPackage> selectedPackages = new List<DriverPackage>();
+            foreach (int index in list.CheckedIndices) selectedPackages.Add(available[index]);
+            if (selectedPackages.Count == 0) return;
+
+            RunBackground("Drivers USB / ADB", "Instalando drivers selecionados...", delegate
+            {
+                EnsureDriverService();
+                StringBuilder report = new StringBuilder();
+                foreach (DriverPackage package in selectedPackages)
+                {
+                    DriverInstaller installer = new DriverInstaller(
+                        driverPackageManager,
+                        new CommandRunner(RegisterOwnedProcess, UnregisterOwnedProcess));
+                    DriverInstallResult result = installer.Install(package, false);
+                    report.AppendLine(package.Manufacturer + " • " + package.DisplayName + ": " +
+                        (result.Success ? "OK" : "FALHA") + " • " + result.Message);
+                }
+                return report.ToString();
+            });
+        }
 
         void BuildUpdatesPage()
         {

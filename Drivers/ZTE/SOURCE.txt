@@ -1,0 +1,9 @@
+﻿Bebel 155 - ZTE USB Driver
+
+Fonte oficial:
+https://www.ztedevices.com/en/support/
+
+Status de redistribuicao no Bebel:
+Unknown
+
+O binario ainda nao e incluido. A licenca/redistribuicao, SHA-256 e assinatura precisam ser aprovados antes de mudar este pacote para Allowed.

@@ -1,0 +1,9 @@
+﻿Bebel 155 - Sony Xperia USB Driver
+
+Fonte oficial:
+https://developer.sony.com/open-source/aosp-on-xperia-open-devices/get-started/flash-tool/download-drivers
+
+Status de redistribuicao no Bebel:
+Unknown
+
+O binario ainda nao e incluido. A licenca/redistribuicao, SHA-256 e assinatura precisam ser aprovados antes de mudar este pacote para Allowed.

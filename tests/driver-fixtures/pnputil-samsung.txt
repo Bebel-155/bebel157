@@ -1,0 +1,7 @@
+Instance ID:                USB\VID_04E8&PID_6860\R58M123456789
+Device Description:         SAMSUNG Mobile USB Composite Device
+Manufacturer Name:          SAMSUNG Electronics Co., Ltd.
+Status:                     Started
+Problem Code:               28
+Driver Name:                
+

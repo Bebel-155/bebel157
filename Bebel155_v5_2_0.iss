@@ -40,6 +40,7 @@ Source: "Atualizacao\manifest.example.json"; DestDir: "{app}\Atualizacao"; Flags
 Source: "Catalogs\android_devices.json"; DestDir: "{app}\Catalogs"; Flags: ignoreversion
 Source: "Catalogs\apple_devices.json"; DestDir: "{app}\Catalogs"; Flags: ignoreversion
 Source: "Catalogs\catalog-manifest.json"; DestDir: "{app}\Catalogs"; Flags: ignoreversion
+Source: "Drivers\*"; DestDir: "{app}\Drivers"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autodesktop}\Bebel Equipe Do Mais Novo 155"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"

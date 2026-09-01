@@ -1,0 +1,6 @@
+Published Name:     oem42.inf
+Original Name:      android_winusb.inf
+Provider Name:      Google, Inc.
+Class Name:         AndroidUsbDeviceClass
+Driver Version:     08/28/2014 11.0.0000.00000
+

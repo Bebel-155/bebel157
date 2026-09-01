@@ -1,0 +1,9 @@
+﻿Bebel 155 - LG Mobile USB Driver (legado)
+
+Fonte oficial:
+https://www.lg.com/us/support
+
+Status de redistribuicao no Bebel:
+Unknown
+
+O binario ainda nao e incluido. A licenca/redistribuicao, SHA-256 e assinatura precisam ser aprovados antes de mudar este pacote para Allowed.

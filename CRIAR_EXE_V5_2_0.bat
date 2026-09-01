@@ -45,7 +45,13 @@ if exist "%CSC%" (
    "%~dp0Market\MercadoLivreAdapter.cs" ^
    "%~dp0Market\PriceNormalizer.cs" ^
    "%~dp0Market\MarketCache.cs" ^
-   "%~dp0Market\MarketPriceService.cs" >"%LOG%" 2>&1
+   "%~dp0Market\MarketPriceService.cs" ^
+   "%~dp0Drivers\DriverModels.cs" ^
+   "%~dp0Drivers\UsbDriverDiscovery.cs" ^
+   "%~dp0Drivers\DriverResolver.cs" ^
+   "%~dp0Drivers\DriverPackageManager.cs" ^
+   "%~dp0Drivers\DriverInstaller.cs" ^
+   "%~dp0Drivers\DriverService.cs" >"%LOG%" 2>&1
 )
 
 if exist "%EXE%" (

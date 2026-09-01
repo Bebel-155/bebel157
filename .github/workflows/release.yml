@@ -10,8 +10,11 @@ on:
       - "Devices/**"
       - "Catalogs/*.cs"
       - "Market/**"
+      - "Drivers/**"
       - "tests/**"
       - "scripts/update_device_catalogs.py"
+      - "scripts/validate_driver_packages.py"
+      - "scripts/validate_driver_signatures.ps1"
       - ".github/workflows/release.yml"
       - "Bebel155_v5_2_0.iss"
       - "CRIAR_EXE_V5_2_0.bat"
@@ -61,7 +64,10 @@ jobs:
             "Catalogs\CatalogModels.cs", "Catalogs\CatalogManager.cs",
             "Catalogs\android_devices.json", "Catalogs\apple_devices.json", "Catalogs\catalog-manifest.json",
             "Market\MarketModels.cs", "Market\IMarketAdapter.cs", "Market\MercadoLivreAdapter.cs",
-            "Market\PriceNormalizer.cs", "Market\MarketCache.cs", "Market\MarketPriceService.cs"
+            "Market\PriceNormalizer.cs", "Market\MarketCache.cs", "Market\MarketPriceService.cs",
+            "Drivers\DriverModels.cs", "Drivers\UsbDriverDiscovery.cs", "Drivers\DriverResolver.cs",
+            "Drivers\DriverPackageManager.cs", "Drivers\DriverInstaller.cs", "Drivers\DriverService.cs",
+            "Drivers\drivers-manifest.json", "scripts\validate_driver_packages.py", "scripts\validate_driver_signatures.ps1"
           )
           foreach ($file in $required) {
             if (!(Test-Path $file)) { throw "Arquivo obrigatorio ausente: $file" }
@@ -80,6 +86,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Falha na validacao estrutural da fonte." }
           python tests/test_compile_regressions.py
           if ($LASTEXITCODE -ne 0) { throw "Falha nos testes de regressao de compilacao." }
+
+      - name: Validar drivers offline
+        shell: pwsh
+        run: |
+          python tests/test_driver_subsystem_structure.py
+          if ($LASTEXITCODE -ne 0) { throw "Falha na estrutura do subsistema de drivers." }
+          python tests/test_driver_manifest_validation.py
+          if ($LASTEXITCODE -ne 0) { throw "Falha nos testes do manifesto de drivers." }
+          python scripts/validate_driver_packages.py --root Drivers
+          if ($LASTEXITCODE -ne 0) { throw "Falha na validacao dos pacotes de drivers." }
+          .\scripts\validate_driver_signatures.ps1 -DriversRoot Drivers
 
       - name: Testar publicacao de catalogos entre volumes
         shell: pwsh
@@ -115,10 +132,10 @@ jobs:
           $frameworkDir = Split-Path $csc -Parent
 
           $sources = @((Resolve-Path "Bebel155_v5_2_0.cs").Path)
-          foreach ($folder in @("Core","Devices","Catalogs","Market")) {
+          foreach ($folder in @("Core","Devices","Catalogs","Market","Drivers")) {
             $sources += Get-ChildItem $folder -Filter *.cs -File | Sort-Object Name | ForEach-Object { $_.FullName }
           }
-          if ($sources.Count -lt 16) { throw "Lista de fontes incompleta: $($sources.Count)" }
+          if ($sources.Count -lt 22) { throw "Lista de fontes incompleta: $($sources.Count)" }
 
           $icon = (Resolve-Path "Assets\bebel155.ico").Path
           $logo = (Resolve-Path "Assets\logo_b155.png").Path
@@ -161,6 +178,7 @@ jobs:
           foreach ($catalog in @("android_devices.json","apple_devices.json","catalog-manifest.json")) {
             if ($text -notmatch [regex]::Escape($catalog)) { throw "Catalogo nao incluido no Setup: $catalog" }
           }
+          if ($text -notmatch 'Drivers\\\*') { throw "Arvore Drivers nao incluida no Setup." }
 
       - name: Compilar Setup
         shell: pwsh
@@ -217,6 +235,7 @@ jobs:
             - reconhecimento Android/iOS por dispositivo selecionado
             - catalogos atualizaveis independentemente do EXE
             - Valor de Mercado novo + usado
+            - diagnostico USB/ADB e gerenciador de drivers offline validados
             - verificacao SHA-256 no atualizador
             Commit: ${{ github.sha }}
           files: |

@@ -1,4 +1,4 @@
-BEBEL EQUIPE DO MAIS NOVO 155 - v5.2.0
+﻿BEBEL EQUIPE DO MAIS NOVO 155 - v5.2.0
 
 PRINCIPAIS NOVIDADES
 - Reconhecimento modular Android e Apple por dispositivo selecionado.
@@ -12,6 +12,9 @@ PRINCIPAIS NOVIDADES
 - Cotacao nao envia serial, IMEI, UDID ou Android ID.
 - Access token do Mercado Livre, quando necessario, fica protegido por DPAPI.
 - Updater v5.2.0 exige SHA-256 antes de aplicar o EXE.
+- Nova aba Drivers USB / ADB: diagnostico por pnputil + ADB, recomendacao por fabricante e reparo controlado.
+- O Bebel diferencia driver ausente de ADB unauthorized/offline.
+- O Setup possui uma arvore Drivers e so aceita binarios com redistribuicao permitida, SHA-256 e assinatura Authenticode validos.
 
 REPOSITORIO
 https://github.com/Bebel-155/bebel157
@@ -51,9 +54,22 @@ VALIDACOES AUTOMATICAS
 - tests/run-catalog-tests.ps1
 - tests/run-market-tests.ps1
 - tests/run-update-tests.ps1
+- tests/run-driver-tests.ps1
+- tests/test_driver_manifest_validation.py
+- scripts/validate_driver_packages.py
+- scripts/validate_driver_signatures.ps1
 
 IMPORTANTE
 Este ambiente de desenvolvimento nao possui Windows/.NET Framework/Inno Setup,
 portanto a compilacao real do WinForms e o Setup sao gates do GitHub Actions.
 A Release so deve ser considerada concluida depois do job "liberar" ficar verde
 e do teste real do updater a partir da v5.1.9.
+
+DRIVERS OFFLINE
+O manifesto cobre as principais marcas Android. Nem todo instalador oficial pode
+ser legalmente redistribuido dentro de um Setup de terceiros. Samsung e Google,
+por exemplo, possuem termos atuais que impedem tratar seus pacotes como
+redistribuiveis pelo Bebel. Nesses casos o app detecta/recomenda a marca e oferece
+a fonte oficial, mas o binario nao e empacotado sem autorizacao/licenca adequada.
+
+Consulte Drivers\README.txt e Drivers\drivers-manifest.json.

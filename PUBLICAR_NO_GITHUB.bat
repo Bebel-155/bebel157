@@ -108,7 +108,7 @@ git diff --cached --quiet
 if not errorlevel 1 (
   echo Nenhuma alteracao nova para publicar.
 ) else (
-  git commit -m "Bebel 155 v5.2.0 - reconhecimento, catalogos e valor de mercado"
+  git commit -m "Bebel 155 v5.2.0 - reconhecimento, drivers offline e valor de mercado"
   if errorlevel 1 (
     echo [ERRO] Falha ao criar commit.
     echo Pasta temporaria: %TMPROOT%

@@ -12,7 +12,7 @@ version=(ROOT/'VERSION').read_text(encoding='utf-8').strip()
 require(version=='5.2.0', 'VERSION must be 5.2.0')
 
 production=[ROOT/'Bebel155_v5_2_0.cs']
-for folder in ('Core','Devices','Catalogs','Market'):
+for folder in ('Core','Devices','Catalogs','Market','Drivers'):
     production += sorted((ROOT/folder).glob('*.cs'))
 
 bat=(ROOT/'CRIAR_EXE_V5_2_0.bat').read_text(encoding='ascii', errors='ignore')
@@ -28,7 +28,7 @@ require('run-all-tests.ps1' in wf, 'release workflow does not run all tests')
 require('Atualizar catalogos da Release' in wf and 'python scripts/update_device_catalogs.py --output-dir Catalogs' in wf, 'release workflow does not generate current catalogs before packaging')
 require('actions/setup-python@v6' in wf, 'release workflow must pin Python setup action')
 require(wf.find('actions/setup-python@v6') < wf.find('python tests/validate-source.py'), 'Python setup must run before Python validation')
-for trigger_path in ('VERSION','Bebel155_v5_2_0.cs','Core/**','Devices/**','Catalogs/*.cs','Market/**','.github/workflows/release.yml'):
+for trigger_path in ('VERSION','Bebel155_v5_2_0.cs','Core/**','Devices/**','Catalogs/*.cs','Market/**','Drivers/**','.github/workflows/release.yml'):
     require(trigger_path in wf, 'release push trigger missing '+trigger_path)
 require('Get-Content "VERSION"' in wf, 'release workflow does not read VERSION')
 require('Bebel155_v5_2_0.cs' in wf, 'release workflow missing v5.2.0 source')
@@ -51,14 +51,20 @@ require('git push origin HEAD:main' in publisher and '--force' not in publisher,
 
 runall=(ROOT/'tests/run-all-tests.ps1').read_text(encoding='utf-8-sig')
 require('verify_release_structure.py' in runall, 'run-all does not execute release structure guard')
-for script in ('run-device-recognition-tests.ps1','run-catalog-tests.ps1','run-market-tests.ps1','run-update-tests.ps1'):
+for script in ('run-device-recognition-tests.ps1','run-catalog-tests.ps1','run-market-tests.ps1','run-update-tests.ps1','run-driver-tests.ps1'):
     require(script in runall, 'run-all missing '+script)
     require((ROOT/'tests'/script).exists(), 'test runner missing '+script)
 
 main=(ROOT/'Bebel155_v5_2_0.cs').read_text(encoding='utf-8-sig')
 require('AutoRefreshCatalogsStartup' in main and 'ThreadPool.QueueUserWorkItem(delegate { AutoRefreshCatalogsStartup(); });' in main, 'app does not auto-refresh device catalogs on startup')
+require('Drivers USB / ADB' in main, 'driver page missing')
+require((ROOT/'Drivers/drivers-manifest.json').exists(), 'driver manifest missing')
+require((ROOT/'scripts/validate_driver_packages.py').exists(), 'driver package validator missing')
+require((ROOT/'scripts/validate_driver_signatures.ps1').exists(), 'driver signature validator missing')
+require('Validar drivers offline' in wf, 'release workflow missing driver validation gate')
 
 iss=(ROOT/'Bebel155_v5_2_0.iss').read_text(encoding='utf-8-sig')
+require('Drivers\\*' in iss, 'Setup missing Drivers tree')
 m=re.search(r'(?ms)^\[Icons\]\s*(.*?)(?=^\[|\Z)',iss)
 require(bool(m),'Inno [Icons] missing')
 if m: require('skipifsourcedoesntexist' not in m.group(1).lower(),'invalid Inno flag in [Icons]')

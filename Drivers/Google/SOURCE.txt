@@ -1,0 +1,9 @@
+﻿Bebel 155 - Google USB Driver
+
+Fonte oficial:
+https://developer.android.com/studio/run/win-usb
+
+Status de redistribuicao no Bebel:
+NotAllowed
+
+O binario nao e incluido no Setup porque os termos atuais nao autorizam a redistribuicao pelo Bebel.

@@ -21,7 +21,7 @@ req(bool(icons),'[Icons] missing')
 if icons: req('skipifsourcedoesntexist' not in icons.group(1).lower(),'invalid [Icons] flag')
 for f in ('android_devices.json','apple_devices.json','catalog-manifest.json'):
     req(f in iss,'catalog missing from ISS: '+f)
-for f in ('Core/DeviceModels.cs','Core/GithubReleaseParser.cs','Devices/AndroidProbe.cs','Devices/AppleProbe.cs','Catalogs/CatalogManager.cs','Market/MarketPriceService.cs'):
+for f in ('Core/DeviceModels.cs','Core/GithubReleaseParser.cs','Devices/AndroidProbe.cs','Devices/AppleProbe.cs','Catalogs/CatalogManager.cs','Market/MarketPriceService.cs','Drivers/DriverModels.cs','Drivers/DriverService.cs'):
     req((ROOT/f).exists(),'source missing: '+f)
 req('com.apple.disk_usage' in (ROOT/'Devices/AppleProbe.cs').read_text(),'Apple disk_usage query missing')
 req('DeviceTargeting.AndroidPrefix(device)' in (ROOT/'Devices/AndroidProbe.cs').read_text(),'Android serial targeting missing')
@@ -29,6 +29,11 @@ req('GithubReleaseParser.Parse(json)' in main,'GitHub JSON parser integration mi
 req('Atualização rejeitada: a Release não forneceu SHA-256 do EXE.' in main,'updater SHA gate missing')
 req('mercadolivre_access_token_dpapi' in main,'DPAPI market token setting missing')
 req('ProtectedData.Protect' in main and 'DataProtectionScope.CurrentUser' in main,'DPAPI protection missing')
+req('Drivers USB / ADB' in main,'driver page missing')
+req('driverPackageManager' in main and 'RefreshDriverDiagnostics' in main,'driver subsystem integration missing')
+req((ROOT/'Drivers/drivers-manifest.json').exists(),'driver manifest missing')
+req((ROOT/'scripts/validate_driver_packages.py').exists(),'driver validator missing')
+req((ROOT/'scripts/validate_driver_signatures.ps1').exists(),'driver signature validator missing')
 
 # catalog hash validation
 manifest=json.loads((ROOT/'Catalogs/catalog-manifest.json').read_text())
@@ -70,7 +75,7 @@ def strip_cs(s):
             else: out.append('\n' if c=='\n' else ' '); i+=1
     return ''.join(out),state
 
-prod=[ROOT/'Bebel155_v5_2_0.cs']+sorted((ROOT/'Core').glob('*.cs'))+sorted((ROOT/'Devices').glob('*.cs'))+sorted((ROOT/'Catalogs').glob('*.cs'))+sorted((ROOT/'Market').glob('*.cs'))
+prod=[ROOT/'Bebel155_v5_2_0.cs']+sorted((ROOT/'Core').glob('*.cs'))+sorted((ROOT/'Devices').glob('*.cs'))+sorted((ROOT/'Catalogs').glob('*.cs'))+sorted((ROOT/'Market').glob('*.cs'))+sorted((ROOT/'Drivers').glob('*.cs'))
 for p in prod:
     s=p.read_text(encoding='utf-8-sig')
     stripped,state=strip_cs(s)

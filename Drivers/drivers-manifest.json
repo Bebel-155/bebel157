@@ -1,0 +1,568 @@
+{
+  "SchemaVersion": 1,
+  "GeneratedUtc": "2026-09-01T00:00:00Z",
+  "Packages": [
+    {
+      "Id": "samsung-offline",
+      "Manufacturer": "Samsung",
+      "DisplayName": "Samsung USB Driver",
+      "Version": "1.9.5.0",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [
+        "04E8"
+      ],
+      "HardwareIdPatterns": [
+        "USB\\VID_04E8*"
+      ],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://developer.samsung.com/android-usb-driver",
+      "RedistributionStatus": "NotAllowed",
+      "LicenseFile": "",
+      "Priority": 101,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "motorola-offline",
+      "Manufacturer": "Motorola",
+      "DisplayName": "Motorola Device Manager / USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [
+        "22B8"
+      ],
+      "HardwareIdPatterns": [
+        "USB\\VID_22B8*"
+      ],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://en-us.support.motorola.com/",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 102,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "xiaomi-offline",
+      "Manufacturer": "Xiaomi",
+      "DisplayName": "Xiaomi / Redmi / POCO USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [
+        "2717"
+      ],
+      "HardwareIdPatterns": [
+        "USB\\VID_2717*"
+      ],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://www.mi.com/global/support/",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 103,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "oneplus-offline",
+      "Manufacturer": "OnePlus",
+      "DisplayName": "OnePlus USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [],
+      "HardwareIdPatterns": [],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://service.oneplus.com/",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 104,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "oppo-offline",
+      "Manufacturer": "OPPO",
+      "DisplayName": "OPPO USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [],
+      "HardwareIdPatterns": [],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://support.oppo.com/",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 105,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "realme-offline",
+      "Manufacturer": "Realme",
+      "DisplayName": "realme USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [],
+      "HardwareIdPatterns": [],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://www.realme.com/support",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 106,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "vivo-offline",
+      "Manufacturer": "Vivo",
+      "DisplayName": "vivo USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [],
+      "HardwareIdPatterns": [],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://www.vivo.com/en/support",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 107,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "huawei-offline",
+      "Manufacturer": "Huawei",
+      "DisplayName": "Huawei USB Driver / HiSuite",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [
+        "12D1"
+      ],
+      "HardwareIdPatterns": [
+        "USB\\VID_12D1*"
+      ],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://consumer.huawei.com/en/support/hisuite/",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 108,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "honor-offline",
+      "Manufacturer": "Honor",
+      "DisplayName": "HONOR USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [],
+      "HardwareIdPatterns": [],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://www.honor.com/global/support/",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 109,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "sony-offline",
+      "Manufacturer": "Sony",
+      "DisplayName": "Sony Xperia USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [
+        "0FCE"
+      ],
+      "HardwareIdPatterns": [
+        "USB\\VID_0FCE*"
+      ],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://developer.sony.com/open-source/aosp-on-xperia-open-devices/get-started/flash-tool/download-drivers",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 110,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "asus-offline",
+      "Manufacturer": "ASUS",
+      "DisplayName": "ASUS Android USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [
+        "0B05"
+      ],
+      "HardwareIdPatterns": [
+        "USB\\VID_0B05*"
+      ],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://www.asus.com/support/",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 111,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "hmd-offline",
+      "Manufacturer": "HMD",
+      "DisplayName": "HMD / Nokia USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [],
+      "HardwareIdPatterns": [],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://www.hmd.com/en_int/support",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 112,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "nothing-offline",
+      "Manufacturer": "Nothing",
+      "DisplayName": "Nothing USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [],
+      "HardwareIdPatterns": [],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://support.nothing.tech/",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 113,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "zte-offline",
+      "Manufacturer": "ZTE",
+      "DisplayName": "ZTE USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [
+        "19D2"
+      ],
+      "HardwareIdPatterns": [
+        "USB\\VID_19D2*"
+      ],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://www.ztedevices.com/en/support/",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 114,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "tcl-offline",
+      "Manufacturer": "TCL",
+      "DisplayName": "TCL / Alcatel USB Driver",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [
+        "1BBB"
+      ],
+      "HardwareIdPatterns": [
+        "USB\\VID_1BBB*"
+      ],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://www.tcl.com/global/en/support",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 115,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "lg-offline",
+      "Manufacturer": "LG",
+      "DisplayName": "LG Mobile USB Driver (legado)",
+      "Version": "",
+      "PackageType": "Exe",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [
+        "1004"
+      ],
+      "HardwareIdPatterns": [
+        "USB\\VID_1004*"
+      ],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://www.lg.com/us/support",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 116,
+      "FallbackPackageId": "google-offline"
+    },
+    {
+      "Id": "google-offline",
+      "Manufacturer": "Google",
+      "DisplayName": "Google USB Driver",
+      "Version": "",
+      "PackageType": "Inf",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [
+        "18D1"
+      ],
+      "HardwareIdPatterns": [
+        "USB\\VID_18D1*"
+      ],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://developer.android.com/studio/run/win-usb",
+      "RedistributionStatus": "NotAllowed",
+      "LicenseFile": "",
+      "Priority": 117,
+      "FallbackPackageId": "generic-offline"
+    },
+    {
+      "Id": "generic-offline",
+      "Manufacturer": "Generic",
+      "DisplayName": "Microsoft WinUSB fallback",
+      "Version": "",
+      "PackageType": "Inf",
+      "RelativePath": "",
+      "SignatureRelativePath": "",
+      "SilentInstallArguments": "",
+      "SilentUninstallArguments": "",
+      "RequiresElevation": true,
+      "SupportedArchitectures": [
+        "x64",
+        "x86"
+      ],
+      "SupportedWindows": [
+        "Windows 10",
+        "Windows 11"
+      ],
+      "UsbVendorIds": [],
+      "HardwareIdPatterns": [],
+      "Sha256": "",
+      "SignaturePublisher": "",
+      "SourceUrl": "https://learn.microsoft.com/windows-hardware/drivers/usbcon/winusb",
+      "RedistributionStatus": "Unknown",
+      "LicenseFile": "",
+      "Priority": 118,
+      "FallbackPackageId": ""
+    }
+  ]
+}

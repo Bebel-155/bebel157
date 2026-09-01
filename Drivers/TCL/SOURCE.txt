@@ -1,0 +1,9 @@
+﻿Bebel 155 - TCL / Alcatel USB Driver
+
+Fonte oficial:
+https://www.tcl.com/global/en/support
+
+Status de redistribuicao no Bebel:
+Unknown
+
+O binario ainda nao e incluido. A licenca/redistribuicao, SHA-256 e assinatura precisam ser aprovados antes de mudar este pacote para Allowed.

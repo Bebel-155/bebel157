@@ -12,4 +12,14 @@ assert not found, 'legacy UI identifiers still present: ' + ', '.join(found)
 assert '-SourceDir "%~dp0."' in bat, 'Roslyn SourceDir must not end with a raw trailing backslash'
 assert '-SourceDir "%~dp0"' not in bat, 'unsafe trailing-backslash SourceDir invocation remains'
 
+for source in [
+    'Drivers\\DriverModels.cs',
+    'Drivers\\UsbDriverDiscovery.cs',
+    'Drivers\\DriverResolver.cs',
+    'Drivers\\DriverPackageManager.cs',
+    'Drivers\\DriverInstaller.cs',
+    'Drivers\\DriverService.cs',
+]:
+    assert source.lower() in bat.lower(), 'local build missing driver source: ' + source
+
 print('PASS compile regression checks')

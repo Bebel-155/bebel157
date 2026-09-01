@@ -1,0 +1,9 @@
+﻿Bebel 155 - Samsung USB Driver
+
+Fonte oficial:
+https://developer.samsung.com/android-usb-driver
+
+Status de redistribuicao no Bebel:
+NotAllowed
+
+O binario nao e incluido no Setup porque os termos atuais nao autorizam a redistribuicao pelo Bebel.

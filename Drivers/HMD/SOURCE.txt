@@ -1,0 +1,9 @@
+﻿Bebel 155 - HMD / Nokia USB Driver
+
+Fonte oficial:
+https://www.hmd.com/en_int/support
+
+Status de redistribuicao no Bebel:
+Unknown
+
+O binario ainda nao e incluido. A licenca/redistribuicao, SHA-256 e assinatura precisam ser aprovados antes de mudar este pacote para Allowed.

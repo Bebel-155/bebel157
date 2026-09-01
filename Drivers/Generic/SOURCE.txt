@@ -1,0 +1,9 @@
+﻿Bebel 155 - Microsoft WinUSB fallback
+
+Fonte oficial:
+https://learn.microsoft.com/windows-hardware/drivers/usbcon/winusb
+
+Status de redistribuicao no Bebel:
+Unknown
+
+O binario ainda nao e incluido. A licenca/redistribuicao, SHA-256 e assinatura precisam ser aprovados antes de mudar este pacote para Allowed.

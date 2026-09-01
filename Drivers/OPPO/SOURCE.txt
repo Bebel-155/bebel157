@@ -1,0 +1,9 @@
+﻿Bebel 155 - OPPO USB Driver
+
+Fonte oficial:
+https://support.oppo.com/
+
+Status de redistribuicao no Bebel:
+Unknown
+
+O binario ainda nao e incluido. A licenca/redistribuicao, SHA-256 e assinatura precisam ser aprovados antes de mudar este pacote para Allowed.
