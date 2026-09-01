@@ -77,6 +77,10 @@ jobs:
         shell: pwsh
         run: python tests/validate-source.py
 
+      - name: Testar publicacao de catalogos entre volumes
+        shell: pwsh
+        run: python tests/test_update_device_catalogs_cross_volume.py
+
       - name: Atualizar catalogos da Release
         shell: pwsh
         run: |

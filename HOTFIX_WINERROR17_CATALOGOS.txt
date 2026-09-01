@@ -1,0 +1,35 @@
+﻿BEBEL 155 v5.2.0 - HOTFIX GITHUB ACTIONS / WINERROR 17
+
+Erro corrigido:
+[WinError 17] The system cannot move the file to a different disk drive
+
+Causa:
+O gerador de catalogos criava os arquivos temporarios no C: do runner
+e usava os.replace() diretamente para a pasta Catalogs no D:.
+No Windows, os.replace() nao move arquivos entre volumes diferentes.
+
+Correcao:
+1. O catalogo continua sendo gerado e validado em staging.
+2. Cada arquivo validado e copiado para um arquivo .tmp dentro da
+   propria pasta Catalogs.
+3. O os.replace() final acontece somente entre arquivos no mesmo
+   diretorio/volume.
+4. Foi adicionado um teste de regressao que simula o erro de troca
+   entre volumes.
+5. O release.yml executa esse teste ANTES de atualizar os catalogos ao vivo.
+
+COMO PUBLICAR
+1. Extraia este pacote em uma pasta nova.
+2. Execute PUBLICAR_NO_GITHUB.bat.
+3. Abra GitHub > Actions > liberar.
+4. Confirme que passam:
+   - Validar fonte
+   - Testar publicacao de catalogos entre volumes
+   - Atualizar catalogos da Release
+   - Testar
+   - Compilar EXE
+   - Compilar Setup
+   - Publicar GitHub Release
+
+A versao continua 5.2.0 porque a execucao anterior falhou antes de criar
+a Release/tag v5.2.0.
