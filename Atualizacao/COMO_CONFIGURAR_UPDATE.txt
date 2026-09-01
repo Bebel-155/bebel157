@@ -1,0 +1,15 @@
+ATUALIZACAO DO BEBEL 155
+
+A v5.1 possui um atualizador real, mas o programa precisa saber onde voce publica as novas versoes.
+
+1. Hospede um manifest.json em HTTPS.
+2. O manifest deve conter version, downloadUrl, sha256 e notes.
+3. Abra a pagina Atualizacoes > Configurar update.
+4. No settings.ini, defina:
+   update_manifest_url=https://seu-servidor/manifest.json
+
+Alternativa offline:
+Copie um manifest.json para:
+%LOCALAPPDATA%\BebelEquipe155\updates\manifest.json
+
+A atualizacao baixa o novo EXE, valida SHA-256 quando informado, cria backup .bak e substitui o executavel apos fechar o programa.

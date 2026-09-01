@@ -1,0 +1,36 @@
+﻿BEBEL EQUIPE DO MAIS NOVO 155 - v5.1.7
+
+REPOSITORIO DE UPDATE
+https://github.com/Bebel-155/bebel157
+
+ALTERACOES
+- Repositório antigo Bebel-155/bebel155 removido das configurações padrão.
+- Migração automática de settings.ini antigo para Bebel-155/bebel157.
+- GitHub Releases apontando para o novo repositório público.
+- Atualizador aceita nomes novos e nomes antigos.
+- Download de atualização usa nome curto Bebel-155_V<versao>.exe.
+- EXE local: Bebel-155_V5_1_7.exe
+- Setup: Bebel-155_Setup_V5_1_7.exe
+- ZIP: Bebel-155_V5_1_7.zip
+- Workflow atualizado para publicar nomes curtos.
+- Script PUBLICAR_NO_GITHUB.bat aponta para bebel157.
+- Tratamento amigável para 404/sem Release da versão anterior mantido.
+- Barra de progresso corrigida da v5.1.6 mantida.
+- Relógio de Brasília do login mantido.
+- Hotfix seguro de ADB/Fastboot mantido.
+
+COMO COMPILAR
+CRIAR_EXE_V5_1_7.bat
+
+COMO ABRIR
+INICIAR_V5_1_7.bat
+
+COMO CRIAR SETUP
+CRIAR_SETUP_V5_1_7.bat
+
+COMO PUBLICAR
+PUBLICAR_NO_GITHUB.bat
+
+LOGIN
+Usuário: Bebel
+Senha: Bebel155

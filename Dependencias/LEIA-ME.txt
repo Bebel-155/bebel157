@@ -1,0 +1,25 @@
+﻿CORREÇÃO DE DEPENDÊNCIAS - BEBEL EQUIPE DO MAIS NOVO 155
+
+A tela mostrando AUSENTE significa apenas que as ferramentas ainda não
+estão instaladas/encontradas no PATH.
+
+Use:
+  INSTALAR_DEPENDENCIAS_BEBEL155.bat
+
+Recomendação:
+1. Escolha 4 - Instalar tudo.
+2. A instalação de ADB/Fastboot usa o ZIP oficial da Google.
+3. Apple Devices é solicitado via Microsoft Store/winget.
+4. As ferramentas idevice_* são opcionais e vêm de uma build comunitária
+   do libimobiledevice para Windows. O script pede sua confirmação.
+5. Ao terminar, feche e abra novamente o Bebel 155.
+
+Pastas usadas:
+%LOCALAPPDATA%\BebelEquipe155\tools\platform-tools
+%LOCALAPPDATA%\BebelEquipe155\tools\libimobiledevice
+
+O instalador também adiciona a pasta dos executáveis ao PATH do usuário.
+
+Importante:
+Apple Devices/drivers e libimobiledevice têm funções diferentes. Para o
+iPhone ser consultado em modo normal, ele ainda precisa confiar no PC.

@@ -1,0 +1,121 @@
+name: Build and Publish Bebel 155
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Definir versao automatica
+        id: version
+        shell: pwsh
+        run: |
+          $patch = 6 + [int]"${{ github.run_number }}"
+          $version = "5.1.$patch"
+          $fileVersion = "V" + ($version -replace '\.','_')
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "file_version=$fileVersion" >> $env:GITHUB_OUTPUT
+
+          $src = "Bebel155_v5_1_7.cs"
+          $text = Get-Content $src -Raw
+          $text = $text -replace 'readonly string AppVersion = "[^"]+";', ('readonly string AppVersion = "' + $version + '";')
+          $text = $text -replace 'footer.Text = "v[^"]+ • USB / Android / iOS";', ('footer.Text = "v' + $version + ' • USB / Android / iOS";')
+          Set-Content -Path $src -Value $text -Encoding UTF8
+
+          $iss = "Bebel155_v5_1_7.iss"
+          $i = Get-Content $iss -Raw
+          $i = $i -replace '#define MyAppVersion "[^"]+"', ('#define MyAppVersion "' + $version + '"')
+          $i = $i -replace '#define MyAppExeName "[^"]+"', ('#define MyAppExeName "Bebel-155_' + $fileVersion + '.exe"')
+          $i = $i -replace 'OutputBaseFilename=.*', ('OutputBaseFilename=Bebel-155_Setup_' + $fileVersion)
+          Set-Content -Path $iss -Value $i -Encoding UTF8
+
+      - name: Compilar EXE
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          $fileVersion = "${{ steps.version.outputs.file_version }}"
+          $exe = "build\Bebel-155_$fileVersion.exe"
+
+          $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          if (!(Test-Path $csc)) {
+            $csc = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+          }
+          if (!(Test-Path $csc)) {
+            throw "csc.exe nao encontrado."
+          }
+
+          & $csc /nologo /target:winexe /optimize+ /platform:anycpu /codepage:65001 `
+            /out:"$exe" `
+            /win32icon:"Assets\bebel155.ico" `
+            /resource:"Assets\logo_b155.png",Bebel155.Logo `
+            /resource:"Assets\banner_b155.png",Bebel155.Banner `
+            /reference:System.dll `
+            /reference:System.Core.dll `
+            /reference:System.Drawing.dll `
+            /reference:System.Windows.Forms.dll `
+            /reference:System.Management.dll `
+            /reference:System.IO.Compression.dll `
+            /reference:System.IO.Compression.FileSystem.dll `
+            "Bebel155_v5_1_7.cs"
+
+          if (!(Test-Path $exe)) {
+            throw "EXE nao criado: $exe"
+          }
+
+      - name: Instalar Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Compilar Setup
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc "Bebel155_v5_1_7.iss"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao compilar Setup."
+          }
+
+      - name: Calcular SHA-256
+        shell: pwsh
+        run: |
+          $fileVersion = "${{ steps.version.outputs.file_version }}"
+          $exe = "build\Bebel-155_$fileVersion.exe"
+          $setup = "dist\Bebel-155_Setup_$fileVersion.exe"
+
+          if (!(Test-Path $setup)) {
+            throw "Setup nao encontrado: $setup"
+          }
+
+          (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower() |
+            Set-Content "$exe.sha256"
+
+          (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower() |
+            Set-Content "$setup.sha256"
+
+      - name: Publicar GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Bebel Equipe Do Mais Novo 155 v${{ steps.version.outputs.version }}
+          make_latest: true
+          body: |
+            Build automatico do Bebel 155.
+            Commit: ${{ github.sha }}
+          files: |
+            build/Bebel-155_${{ steps.version.outputs.file_version }}.exe
+            build/Bebel-155_${{ steps.version.outputs.file_version }}.exe.sha256
+            dist/Bebel-155_Setup_${{ steps.version.outputs.file_version }}.exe
+            dist/Bebel-155_Setup_${{ steps.version.outputs.file_version }}.exe.sha256
